@@ -1,6 +1,8 @@
 import * as WebSocket from 'ws';
 import * as data from '../chatData';
 
+//TODO some chat history
+
 export class Connections {
   connections: Array<{name: string, socket: WebSocket}>;
   pid: number;
@@ -11,21 +13,21 @@ export class Connections {
   }
   
   newConnection(socket: WebSocket) {
-    let name = "Person" + this.pid;
+    let personName = "Person" + this.pid;
     this.pid++;
-    this.connections.push({name: name, socket});
+    this.connections.push({name: personName, socket});
 
-    console.log(`new person ${name}`);
+    console.log(`new person ${personName}`);
 
     //send this new user's name to everyone
     let newUserName: data.ServerMessageAddUser = {
       type: "adduser",
-      name: name
+      name: personName
     };
     //only send one's name to themself once, TODO change to 0 times
     //this.sendToAllExcept(newUserName, name);
     this.connections.map((con) => {
-      if(name !== con.name) {
+      if(personName !== con.name) {
         con.socket.send(JSON.stringify(newUserName));
       }
 
@@ -38,16 +40,13 @@ export class Connections {
     });
 
     socket.on("close", (code: number, reason: string) => {
-      console.log(`close ${code} because ${reason} for ${name}`);
+      console.log(`close ${code} because "${reason}" for ${personName}`);
       this.connections = this.connections.filter((connection) => connection.socket !== socket);
       let deluserpacket: data.ServerMessageDelUser = {
         type: "deluser",
-        name: name
+        name: personName
       }
       this.sendToAll(deluserpacket);
-      //for(let i = 0; i < this.connections.length; i++) {
-        //this.connections[i].socket.send(JSON.stringify(deluserpacket));
-      //}
     });
 
     //TODO oh my god split up this function
@@ -56,39 +55,43 @@ export class Connections {
         console.log(message);
         if(message.startsWith("ping")) {
             socket.send("pong " + message.slice(4));
+            return;
         }
         try {
           let messageJson = JSON.parse(message);
           if(data.validateClientMessage(messageJson)) {
             if(messageJson.type == "append") {
-              let packet: data.ServerMessageAppend = {
-                type: "append",
-                name: name,
-                text: messageJson.text
-              };
-              console.log("sending " + JSON.stringify(packet));
-              this.sendToAll(packet);
-              //for(let i = 0; i < this.connections.length; i++) {
-                //this.connections[i].socket.send(JSON.stringify(packet));
-              //}
+              this.handleAppend(messageJson, personName);
             }
             if(messageJson.type == "replace") {
-              let packet: data.ServerMessageReplace = {
-                type: "replace",
-                name: name,
-                text: messageJson.text,
-                offset: messageJson.offset
-              };
-              console.log("sending " + JSON.stringify(packet));
-              this.sendToAll(packet);
-              //for(let i = 0; i < this.connections.length; i++) {
-                //this.connections[i].socket.send(JSON.stringify(packet));
-              //}
+              this.handleReplace(messageJson, personName);
             }
           }
-        } catch(e) { }
+        } catch(e) {
+          console.log("error handling message: " + e);
+        }
       }
     });
+  }
+
+  handleReplace(message: data.ClientMessageReplace, personFrom: string) {
+    let packet: data.ServerMessageReplace = {
+      type: "replace",
+      name: personFrom,
+      text: message.text,
+      offset: message.offset
+    };
+    this.sendToAll(packet);
+  }
+
+  handleAppend(message: data.ClientMessageAppend, personFrom: string) {
+    let packet: data.ServerMessageAppend = {
+      type: "append",
+      name: personFrom,
+      text: message.text
+    };
+    console.log("sending " + JSON.stringify(packet));
+    this.sendToAll(packet);
   }
 
   sendToAllExcept(packet: data.ServerMessage, name: string) {
