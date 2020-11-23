@@ -20,7 +20,6 @@ class Message extends React.Component<{name: string}, {text: string}> {
   }
 
   appendText(text: string) {
-    console.log("adding text " + text);
     this.replaceText(text, 0);
   }
 

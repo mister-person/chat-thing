@@ -4,28 +4,25 @@ import * as data from '../chatData';
 
 //TODO some chat history
 
-type Person = {name: string, socket: WebSocket};
+type Person = {name: string, chatHistory: string, socket: WebSocket};
 
 export class Connections {
   connections: Array<Person>;
-  pid: number;
 
   constructor() {
     this.connections = [];
-    this.pid = 0
   }
   
   newConnection(socket: WebSocket) {
-    let personName: string | null = null;
-    this.pid++;
+    let person: Person | null = null;
 
     socket.on("close", (code: number, reason: string) => {
-      console.log(`close ${code} because "${reason}" for ${personName}`);
-      if(personName !== null) {
+      console.log(`close ${code} because "${reason}" for ${person}`);
+      if(person !== null) {
         this.connections = this.connections.filter((connection) => connection.socket !== socket);
         let deluserpacket: data.ServerMessageDelUser = {
           type: "deluser",
-          name: personName
+          name: person.name
         }
         this.sendToAll(deluserpacket);
       }
@@ -40,17 +37,17 @@ export class Connections {
         }
         try {
           let messageJson = JSON.parse(message);
-          if(personName === null) {
+          if(person === null) {
             if(data.ClientMessageRequestName.guard(messageJson)) {
-              personName = this.handleNameRequest(messageJson, socket);
+              person = this.handleNameRequest(messageJson, socket);
             }
           }
           else {
             if(data.ClientMessageAppend.guard(messageJson)) {
-              this.handleAppend(messageJson, personName);
+              this.handleAppend(messageJson, person);
             }
             if(data.ClientMessageReplace.guard(messageJson)) {
-              this.handleReplace(messageJson, personName);
+              this.handleReplace(messageJson, person);
             }
           }
         } catch(e) {
@@ -68,7 +65,7 @@ export class Connections {
     }
   }
 
-  handleNameRequest(jsonMessage: data.ClientMessageRequestName, socket: WebSocket): string | null {
+  handleNameRequest(jsonMessage: data.ClientMessageRequestName, socket: WebSocket): Person | null {
     //TODO validate
     if(jsonMessage.name === "") {
       socket.send(JSON.stringify(this.nameResponseError("name can't be empty")));
@@ -79,32 +76,37 @@ export class Connections {
       return null;
     }
     else {
-      this.logIn(jsonMessage.name, socket);
-      return jsonMessage.name;
+      let person: Person = {
+        name: jsonMessage.name,
+        socket: socket,
+        chatHistory: ""
+      }
+      this.logIn(person);
+      return person;
     }
   }
 
-  logIn(personName: string, socket: WebSocket) {
+  logIn(person: Person) {
     let nameResponse: data.ServerMessageNameResponse = {
       type: "name",
-      newName: personName,
+      newName: person.name,
       isTaken: false
     };
-    socket.send(JSON.stringify(nameResponse));
+    person.socket.send(JSON.stringify(nameResponse));
 
-    this.connections.push({name: personName, socket});
+    this.connections.push(person);
 
-    console.log(`new person ${personName}`);
+    console.log(`new person ${person.name}`);
 
     //send this new user's name to everyone
     let newUserName: data.ServerMessageAddUser = {
       type: "adduser",
-      name: personName
+      name: person.name
     };
     //only send one's name to themself once, TODO change to 0 times
     //this.sendToAllExcept(newUserName, name);
     this.connections.map((con) => {
-      if(personName !== con.name) {
+      if(person.name !== con.name) {
         con.socket.send(JSON.stringify(newUserName));
       }
 
@@ -113,21 +115,38 @@ export class Connections {
         type: "adduser",
         name: con.name
       }
-      socket.send(JSON.stringify(toNewUser));
+      person.socket.send(JSON.stringify(toNewUser));
+      let history: data.ServerMessageReplace = {
+        type: "replace",
+        name: con.name,
+        text: con.chatHistory,
+        offset: 0
+      }
+      person.socket.send(JSON.stringify(history));
     });
   }
 
-  handleReplace(message: data.ClientMessageReplace, personFrom: string) {
+  handleReplace(message: data.ClientMessageReplace, personFrom: Person) {
     let packet: data.ServerMessageReplace = {
       type: "replace",
-      name: personFrom,
+      name: personFrom.name,
       text: message.text,
       offset: message.offset
     };
     this.sendToAll(packet);
+    let slice = personFrom.chatHistory.slice(0, personFrom.chatHistory.length - message.offset)
+    if(personFrom.chatHistory.length - message.offset < 0) {
+      slice = "";//TODO maybe test this
+    }
+    let newText = slice + message.text;
+    personFrom.chatHistory = newText.slice(-50);
   }
 
-  handleAppend(message: data.ClientMessageAppend, personFrom: string) {
+  handleAppend(message: data.ClientMessageAppend, personFrom: Person) {
+    console.log("got an append: " + JSON.stringify(message));
+    let replace: data.ClientMessageReplace = {...message, type: "replace", offset: 0};
+    this.handleReplace(replace, personFrom);
+  /*
     let packet: data.ServerMessageAppend = {
       type: "append",
       name: personFrom,
@@ -135,11 +154,12 @@ export class Connections {
     };
     console.log("sending " + JSON.stringify(packet));
     this.sendToAll(packet);
+  */
   }
 
-  sendToAllExcept(packet: data.ServerMessageAppend, name: string) {
+  sendToAllExcept(packet: data.ServerMessageAppend, person: Person) {
     this.connections.map((con) => {
-      if(con.name !== name) {
+      if(con.name !== person.name) {
         con.socket.send(JSON.stringify(packet))
       }
     });
