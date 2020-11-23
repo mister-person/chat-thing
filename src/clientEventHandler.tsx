@@ -2,13 +2,24 @@ import * as data from "./chatData";
 
 type callbackID = number;
 
+type stringCallback = (name: string) => void;
+type replaceCallback = (name: string, offset: number) => void;
+type nameCallback = (name: string, isTaken: boolean) => void;
+
+interface callbackElement<T> {
+  id: callbackID,
+  name?: string,
+  callback: T
+}
+
 //TODO impl other methods
 //TODO replace needs other parameter
 export class ChatEventHandler {
-  addUserCallbacks: Array<{id: callbackID, callback: (name: string) => void}>;
-  delUserCallbacks: Array<{id: callbackID, callback: (name: string) => void}>;
-  appendCallbacks: Array<{id: callbackID, name: string, callback: (name: string) => void}>;
-  replaceCallbacks: Array<{id: callbackID, name: string, callback: (name: string, offset: number) => void}>;
+  addUserCallbacks: Array<{id: callbackID, callback: stringCallback}>;
+  delUserCallbacks: Array<{id: callbackID, callback: stringCallback}>;
+  appendCallbacks: Array<{id: callbackID, from: string, callback: stringCallback}>;
+  replaceCallbacks: Array<{id: callbackID, from: string, callback: replaceCallback}>;
+  nameCallbacks: Array<{id: callbackID, callback: nameCallback}>;
 
   lastID: number = 0;
 
@@ -29,6 +40,7 @@ export class ChatEventHandler {
     this.delUserCallbacks = [];
     this.appendCallbacks = [];
     this.replaceCallbacks = [];
+    this.nameCallbacks = [];
   }
 
   handleMessage(message: string) {
@@ -39,63 +51,75 @@ export class ChatEventHandler {
     try {
       messageJson = JSON.parse(message);
     } catch(e) {}
-    if(data.validateServerMessage(messageJson)) {
-      if(messageJson.type === "append") {
-        let cbList = this.appendCallbacks;
-        for(let i = 0; i < cbList.length; i++) {
-          if(cbList[i].name === messageJson.name) {
-            cbList[i].callback(messageJson.text);
-          }
-        }
-      }
-      if(messageJson.type === "replace") {
-        let cbList = this.replaceCallbacks;
-        for(let i = 0; i < cbList.length; i++) {
-          if(cbList[i].name === messageJson.name) {
-            cbList[i].callback(messageJson.text, messageJson.offset);
-          }
-        }
-      }
-      if(messageJson.type === "adduser") {
-        let cbList = this.addUserCallbacks;
-        for(let i = 0; i < cbList.length; i++) {
-          cbList[i].callback(messageJson.name);
-        }
-      }
-      if(messageJson.type === "deluser") {
-        let cbList = this.delUserCallbacks;
-        for(let i = 0; i < cbList.length; i++) {
-          cbList[i].callback(messageJson.name);
+    if(data.ServerMessageAppend.guard(messageJson)) {
+      let cbList = this.appendCallbacks;
+      //TODO map
+      for(let i = 0; i < cbList.length; i++) {
+        if(cbList[i].from === messageJson.name) {
+          cbList[i].callback(messageJson.text);
         }
       }
     }
+    if(data.ServerMessageReplace.guard(messageJson)) {
+      let cbList = this.replaceCallbacks;
+      for(let i = 0; i < cbList.length; i++) {
+        if(cbList[i].from === messageJson.name) {
+          cbList[i].callback(messageJson.text, messageJson.offset);
+        }
+      }
+    }
+    if(data.ServerMessageAddUser.guard(messageJson)) {
+      let cbList = this.addUserCallbacks;
+      for(let i = 0; i < cbList.length; i++) {
+        cbList[i].callback(messageJson.name);
+      }
+    }
+    if(data.ServerMessageDelUser.guard(messageJson)) {
+      let cbList = this.delUserCallbacks;
+      for(let i = 0; i < cbList.length; i++) {
+        cbList[i].callback(messageJson.name);
+      }
+    }
+    if(data.ServerMessageNameResponse.guard(messageJson)) {
+      let nameMessage = messageJson;
+      this.nameCallbacks.map((listElement) => {
+        listElement.callback(nameMessage.newName, nameMessage.isTaken);
+      });
+    }
+  }
+
+  newID(): callbackID {
+    this.lastID++;
+    return this.lastID;
+  }
+
+  onName(callback: nameCallback): callbackID {
+    let id = this.newID();
+    this.nameCallbacks.push({id, callback});
+    return id;
   }
 
   onAddUser(callback: (name: string) => void): callbackID {
-    this.lastID++;
-    let id: callbackID = 0;
+    let id = this.newID();
     this.addUserCallbacks.push({id, callback});
     return id;
   }
 
   onDelUser(callback: (name: string) => void): callbackID {
-    this.lastID++;
-    let id: callbackID = 0;
+    let id = this.newID();
     this.delUserCallbacks.push({id, callback});
     return id;
   }
 
   onAppend(name: string, callback: (name: string) => void): callbackID {
-    this.lastID++;
-    let id: callbackID = 0;
-    this.appendCallbacks.push({id, name, callback});
+    let id = this.newID();
+    this.appendCallbacks.push({id, from: name, callback});
     return id;
   }
 
   onReplace(name: string, callback: (name: string, offset: number) => void): callbackID {
-    this.lastID++;
-    let id: callbackID = 0;
-    this.replaceCallbacks.push({id, name, callback});
+    let id = this.newID();
+    this.replaceCallbacks.push({id, from: name, callback});
     return id;
   }
 

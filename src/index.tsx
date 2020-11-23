@@ -22,7 +22,7 @@ let replaceCallback = function(text: string, offset: number) {
 
 ReactDOM.render(
   <React.StrictMode>
-    <App appendCallback={appendCallback} replaceCallback={replaceCallback}/>
+    <App appendCallback={appendCallback} replaceCallback={replaceCallback} socket={socket}/>
   </React.StrictMode>,
   document.getElementById('root')
 );

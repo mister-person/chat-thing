@@ -1,6 +1,7 @@
 import './App.css';
 import {eventHandler} from './index';
 import React from 'react';
+import * as data from './chatData';
 
 class Message extends React.Component<{name: string}, {text: string}> {
   constructor(props: {name: string}) {
@@ -19,7 +20,7 @@ class Message extends React.Component<{name: string}, {text: string}> {
   }
 
   appendText(text: string) {
-    console.log("asdf" + text);
+    console.log("adding text " + text);
     this.replaceText(text, 0);
   }
 
@@ -126,8 +127,67 @@ class ChatInput extends React.Component<any, {text: string}> {
 
   render() {
     return (
-      <form onSubmit={() => console.log("submit")}>
-        <input type="text" value={this.state.text} onChange={this.handleChange}>
+      <input type="text" value={this.state.text} onChange={this.handleChange}>
+          
+      </input>
+    )
+  }
+}
+
+type NameInputProps = {socket: WebSocket, newNameCallback: (newName: string) => void};
+
+class NameInput extends React.Component<NameInputProps, {message: string | null}> {
+  inputRef: React.RefObject<HTMLInputElement>;
+  
+  constructor(props: NameInputProps) {
+    super(props);
+
+    this.state = {message: null};
+
+    this.inputRef = React.createRef();
+    
+    this.handleNameResponse = this.handleNameResponse.bind(this);
+  }
+
+  componentWillMount() {
+    eventHandler.onName(this.handleNameResponse);
+  }
+
+  handleNameResponse(newName: string, isTaken: boolean) {
+    if(isTaken) {
+      this.setState({message: newName});
+    }
+    else {
+      this.props.newNameCallback(newName);
+    }
+  }
+
+  sendNameRequest() {
+    console.log(this.inputRef.current?.value);
+    if(this.inputRef.current !== null) {
+      let request: data.ClientMessageRequestName = {
+        type: "name",
+        name: this.inputRef.current.value
+      };
+      this.props.socket.send(JSON.stringify(request));
+    }
+  }
+
+  render() {
+    return (
+      <form>
+        <input type="text" ref={this.inputRef}>
+          
+        </input>
+        <br/>
+        <label>
+          {this.state.message === null ? "" : this.state.message}
+        </label>
+        <br/>
+        <input type="submit" value="pick name" onClick={(e) => {
+          e.preventDefault();
+          this.sendNameRequest()
+        }}>
           
         </input>
       </form>
@@ -135,14 +195,49 @@ class ChatInput extends React.Component<any, {text: string}> {
   }
 }
 
-function App(props: any) {
-  return (
-    <div className="App">
-      <MessageList/>
-      <ChatInput appendCallback={props.appendCallback} replaceCallback={props.replaceCallback}/>
-    </div>
-  );
+interface AppProps {
+  appendCallback: (text: string) => void,
+  replaceCallback: (text: string, offset: number) => void,
+  socket: WebSocket
+}
 
+interface AppState {
+  name: string | null
+}
+
+class App extends React.Component<AppProps, AppState> {
+
+  constructor(props: AppProps) {
+    super(props);
+
+    this.state = {
+      name: null
+    }
+
+    this.newNameCallback = this.newNameCallback.bind(this);
+  }
+
+  newNameCallback(newName: string) {
+    this.setState({name: newName});
+  }
+
+  render() {
+    if(this.state.name == null) {
+      return (
+        <div className="App">
+          <NameInput newNameCallback={this.newNameCallback} socket={this.props.socket}/>
+        </div>
+      )
+    }
+    else {
+      return (
+        <div className="App">
+          <MessageList/>
+          <ChatInput appendCallback={this.props.appendCallback} replaceCallback={this.props.replaceCallback}/>
+        </div>
+      );
+    }
+  }
 }
 
 /*

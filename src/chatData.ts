@@ -1,82 +1,64 @@
-export interface ServerMessageAppend {
-  type: "append",
-  name: string,
-  text: string
-}
+import * as rt from "runtypes";
 
-export interface ServerMessageReplace {
-  type: "replace",
-  name: string,
-  text: string,
-  offset: number
-}
+export const ServerMessageAppend = rt.Record({
+  type: rt.Literal("append"),
+  name: rt.String,
+  text: rt.String
+});
+export type ServerMessageAppend = rt.Static<typeof ServerMessageAppend>;
 
-export interface ServerMessageAddUser {
-  type: "adduser",
-  name: string
-}
+export const ServerMessageReplace = rt.Record({
+  type: rt.Literal("replace"),
+  name: rt.String,
+  text: rt.String,
+  offset: rt.Number
+});
+export type ServerMessageReplace  = rt.Static<typeof ServerMessageReplace>;
 
-export interface ServerMessageDelUser {
-  type: "deluser",
-  name: string
-}
+export const ServerMessageAddUser = rt.Record({
+  type: rt.Literal("adduser"),
+  name: rt.String
+});
+export type ServerMessageAddUser  = rt.Static<typeof ServerMessageAddUser>;
 
-//TODO add/del user + 
-export type ServerMessage = ServerMessageReplace | ServerMessageAppend | ServerMessageAddUser | ServerMessageDelUser;
+export const ServerMessageDelUser = rt.Record({
+  type: rt.Literal("deluser"),
+  name: rt.String
+});
+export type ServerMessageDelUser  = rt.Static<typeof ServerMessageDelUser>;
 
-export interface ClientMessageAppend {
-  type: "append",
-  text: string
-}
+export const ServerMessageNameResponse = rt.Record({
+  type: rt.Literal("name"),
+  isTaken: rt.Boolean,
+  newName: rt.String
+});
+export type ServerMessageNameResponse  = rt.Static<typeof ServerMessageNameResponse>;
 
-export interface ClientMessageReplace {
-  type: "replace",
-  text: string,
-  offset: number
-}
+export const ServerMessage = rt.Union(ServerMessageReplace, 
+  ServerMessageAppend,
+  ServerMessageAddUser,
+  ServerMessageDelUser,
+  ServerMessageNameResponse);
+export type ServerMessage  = rt.Static<typeof ServerMessage>;
 
-export type ClientMessage = ClientMessageReplace | ClientMessageAppend;
+export const ClientMessageAppend = rt.Record({
+  type: rt.Literal("append"),
+  text: rt.String
+});
+export type ClientMessageAppend  = rt.Static<typeof ClientMessageAppend>;
 
-//meh I don't like it
-export function validateClientMessage(jsonMessage: any): jsonMessage is ClientMessage {
-  if(typeof(jsonMessage) !== "object") { return false; }
-  if(jsonMessage.type === "append") {
-    if(typeof(jsonMessage.text) === "string") {
-      return true;
-    }
-  }
-  else if(jsonMessage.type === "replace") {
-    if(typeof(jsonMessage.text) === "string" && typeof(jsonMessage.offset) === "number") {
-      return true;
-    }
-  }
-  return false;
-}
+export const ClientMessageReplace = rt.Record({
+  type: rt.Literal("replace"),
+  text: rt.String,
+  offset: rt.Number
+});
+export type ClientMessageReplace  = rt.Static<typeof ClientMessageReplace>;
 
-//meh I don't like this one either
-export function validateServerMessage(jsonMessage: any): jsonMessage is ServerMessage {
-  if(typeof(jsonMessage) !== "object") { return false; }
-  if(jsonMessage.type === "append") {
-    if(typeof(jsonMessage.name) === "string" && typeof(jsonMessage.text) === "string") {
-      return true;
-    }
-  }
-  else if(jsonMessage.type === "replace") {
-    if(typeof(jsonMessage.name) === "string" &&
-        typeof(jsonMessage.text) === "string" &&
-        typeof(jsonMessage.offset) === "number") {
-      return true;
-    }
-  }
-  else if(jsonMessage.type === "adduser") {
-    if(typeof(jsonMessage.name) === "string") {
-      return true;
-    }
-  }
-  else if(jsonMessage.type === "deluser") {
-    if(typeof(jsonMessage.name) === "string") {
-      return true;
-    }
-  }
-  return false;
-}
+export const ClientMessageRequestName = rt.Record({
+  type: rt.Literal("name"),
+  name: rt.String
+});
+export type ClientMessageRequestName  = rt.Static<typeof ClientMessageRequestName>;
+
+export const ClientMessage = rt.Union(ClientMessageAppend, ClientMessageReplace, ClientMessageRequestName);
+export type ClientMessage  = rt.Static<typeof ClientMessage>;
