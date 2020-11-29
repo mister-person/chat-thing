@@ -24,11 +24,18 @@ let replaceCallback = function(text: string, offset: number) {
 
 let nameCallback = function(name: string) {
   console.log("in name callback");
-  let request = {
+  let request = JSON.stringify({
     type: "name",
     name: name
-  };
-  socket.send(JSON.stringify(request));
+  });
+  if(socket.readyState === socket.OPEN) {
+    socket.send(request);
+  }
+  else {
+    socket.addEventListener("open", () => {
+      socket.send(request);
+    });
+  }
 }
 
 //work around bug in create-react-app

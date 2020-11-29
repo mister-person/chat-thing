@@ -35,14 +35,16 @@ class Message extends React.Component<{name: string}, {text: string}> {
 
   render() {
     return (
-      <>
-        <div>
-          {this.props.name}
+      <div className="message">
+        <div className="message-name">
+          <span className="message-name-span">
+            {this.props.name}
+          </span>
         </div>
-        <div>
+        <div className="message-text">
           {this.state.text === "" ? <br/> : this.state.text}
         </div>
-      </>
+      </div>
     )
   }
 }
@@ -86,7 +88,9 @@ class MessageList extends React.Component<{}, MessagelistState> {
   }
 
   render() {
-    return this.state.messages.map((message) => <Message key={message.name} name={message.name}/>);
+    return <div className="message-list">
+      {this.state.messages.map((message) => <Message key={message.name} name={message.name}/>)}
+    </div>;
   }
 }
 
@@ -95,11 +99,12 @@ interface ChatInputState {
   unsentText: string,
   unsentOffset: number
 };
+
 //TODO specify type of props
 class ChatInput extends React.Component<any, ChatInputState> {
   constructor(props: any) {
     super(props);
-    
+
     this.state = {text: "", unsentText: "", unsentOffset: 0};
 
     this.handleChange = this.handleChange.bind(this);
@@ -110,6 +115,15 @@ class ChatInput extends React.Component<any, ChatInputState> {
       this.props.replaceCallback(this.state.unsentText, this.state.unsentOffset);
       this.setState({unsentText: "", unsentOffset: 0});
     }
+  }
+
+  shouldComponentUpdate(nextProps: any, nextState: ChatInputState) {
+    if(this.state.text === nextState.text && this.props === nextProps) {
+      if(nextState.unsentText === "" && nextState.unsentOffset === 0) {
+        return false;
+      }
+    }
+    return true;
   }
 
   handleChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -134,6 +148,7 @@ class ChatInput extends React.Component<any, ChatInputState> {
       }
       var textToAppend = newText.slice(oldText.length - offset);
 
+      //TODO test with no updates
       let newUnsentText = prevState.unsentText.slice(0, prevState.unsentText.length - offset);
       newUnsentText += textToAppend;
       let newOffset = offset - prevState.unsentText.length;
@@ -153,7 +168,7 @@ class ChatInput extends React.Component<any, ChatInputState> {
 
   render() {
     return (
-      <input type="text" value={this.state.text} onChange={this.handleChange}>
+      <input type="text" className="chat-input" autoFocus value={this.state.text} onChange={this.handleChange}>
           
       </input>
     )
@@ -201,7 +216,7 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
   render() {
     return (
       <form>
-        <input type="text" ref={this.inputRef}>
+        <input type="text" autoFocus ref={this.inputRef}>
           
         </input>
         <br/>
@@ -240,6 +255,8 @@ class App extends React.Component<AppProps, AppState> {
       name: null
     }
 
+    this.props.nameCallback("naim");
+
     this.newNameCallback = this.newNameCallback.bind(this);
   }
 
@@ -258,8 +275,13 @@ class App extends React.Component<AppProps, AppState> {
     else {
       return (
         <div className="App">
-          <MessageList/>
-          <ChatInput appendCallback={this.props.appendCallback} replaceCallback={this.props.replaceCallback}/>
+          <div className="sidebar">
+            "asdf"
+          </div>
+          <div className="main">
+            <MessageList/>
+            <ChatInput appendCallback={this.props.appendCallback} replaceCallback={this.props.replaceCallback}/>
+          </div>
         </div>
       );
     }

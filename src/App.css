@@ -1,16 +1,84 @@
 .App {
+  height: 100%;
+}
+
+html,body,#root,.app {
+  height: 100%;
+}
+
+body {
+  background: grey;
+}
+
+.sidebar {
+  width: 150px;
+  position: fixed;
+  border: solid blue;
+}
+
+.main {
+  margin: auto;
+  width: 50%;
+  outline-style: dotted;
+  position: relative;
+  height: 100%;
+  background-image: linear-gradient(#e0e0e0, #a0a0a0);
+}
+
+.message-list {
+  overflow: scroll;
+  border: solid black;
+  position: absolute;
+  top: 0px;
+  bottom: 50px;
+  left: 0px;
+  right: 0px;
+}
+
+.message {
+  border-style: solid;
+  border-color: blue;
+  border-radius: 30px;
+  background-color: #d0d0ff;
+  width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 10px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.message-name {
   text-align: center;
+  border: solid cyan;
+  padding: 5px;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.message-name-span {
+  text-align: center;
+  border: solid blue;
+  background-color: #f0f0f0;
+  color: black;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-radius: 1000px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.message-text {
+  padding: 5px;
+  font-size: 20px;
+}
+
+.main > .chat-input {
+  size: 30px;
+  bottom: 15px;
+  left: 0px;
+  right: 0px;
+  position: absolute;
+  margin: auto;
+  width: 200px;
+  border: solid darkgreen;
+  outline: solid lightgreen;
 }
 
 .App-header {

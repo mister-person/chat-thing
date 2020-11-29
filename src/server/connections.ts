@@ -18,6 +18,12 @@ export class Connections {
 
     console.log("connections length: " + this.connections.length);
 
+    socket.on("error", (socket: any, err: any) => {
+      console.log("error on socket");
+      console.log(JSON.stringify(err));
+      console.log(JSON.stringify(socket));
+    });
+
     socket.on("close", (code: number, reason: string) => {
       console.log(`close ${code} because "${reason}" for ${person}`);
       if(person !== null) {

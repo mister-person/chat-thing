@@ -1,7 +1,6 @@
 import express from "express";
 import * as http from "http";
 import * as WebSocket from "ws";
-import * as createProxyMiddleware from 'http-proxy-middleware';
 
 import {Connections} from './connections';
 
@@ -42,6 +41,11 @@ const server = app.listen(port, () => {
 });
 
 const wsServer = new WebSocket.Server({noServer: true});
+
+wsServer.on("error", (socket: WebSocket, err: Error) => {
+  console.log(JSON.stringify(err));
+});
+
 const connections = new Connections();
 wsServer.on("connection", (socket: WebSocket, _request: http.IncomingMessage) => {
   connections.newConnection(socket);
@@ -62,7 +66,7 @@ process.on('SIGINT', function() {
 
 server.on('upgrade', (request, socket, head) => {
   //TODO actually check url
-  console.log("upgread request");
+  console.log("upgrade request");
   wsServer.handleUpgrade(request, socket, head, socket => {
     wsServer.emit('connection', socket, request);
   });
