@@ -90,37 +90,64 @@ class MessageList extends React.Component<{}, MessagelistState> {
   }
 }
 
+interface ChatInputState {
+  text: string,
+  unsentText: string,
+  unsentOffset: number
+};
 //TODO specify type of props
-class ChatInput extends React.Component<any, {text: string}> {
+class ChatInput extends React.Component<any, ChatInputState> {
   constructor(props: any) {
     super(props);
     
-    this.state = {text: ""}
+    this.state = {text: "", unsentText: "", unsentOffset: 0};
 
     this.handleChange = this.handleChange.bind(this);
   }
 
-  handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    this.setState((oldState, _props) => {
-      let oldText = oldState.text;
-      let newText = event.target.value;
+  componentDidUpdate(_prevProps: any, prevState: ChatInputState) {
+    if(this.state.unsentText !== "" || this.state.unsentOffset !== 0) {
+      this.props.replaceCallback(this.state.unsentText, this.state.unsentOffset);
+      this.setState({unsentText: "", unsentOffset: 0});
+    }
+  }
 
-      {
-        let offset = oldText.length;
-        for(let i = 0; i < newText.length; i++) {
-          //if newText[i] overflows, it is undefined,
-          //which exits the loop with offset 0 as it should
-          if(newText[i] !== oldText[i]) {
-            break
-          }
-          offset--;
+  handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+    this.setState((prevState, _props) => {
+      console.log("handle change set state");
+
+      let newText = event.target.value;
+      let oldText = prevState.text;
+      console.log("new:old " + newText + ":" + oldText);
+
+      //calculate what new text was added to text box
+      //offset is how many characters from the right of
+      //the old text box value have changed
+      let offset = oldText.length;
+      for(let i = 0; i < newText.length; i++) {
+        //if newText[i] overflows, it is undefined,
+        //which exits the loop with offset 0 as it should
+        if(newText[i] !== oldText[i]) {
+          break;
         }
-        var textToAppend = newText.slice(oldText.length - offset);
-        this.props.replaceCallback(textToAppend, offset);
+        offset--;
       }
+      var textToAppend = newText.slice(oldText.length - offset);
+
+      let newUnsentText = prevState.unsentText.slice(0, prevState.unsentText.length - offset);
+      newUnsentText += textToAppend;
+      let newOffset = offset - prevState.unsentText.length;
+      if(newOffset < 0) {
+        newOffset = 0;
+      }
+      newOffset += prevState.unsentOffset;
 
       //TODO magic number
-      return {text: newText.slice(-10)}
+      return {
+        text: newText.slice(-10),
+        unsentText: newUnsentText,
+        unsentOffset: newOffset
+      };
     });
   }
 
@@ -133,7 +160,10 @@ class ChatInput extends React.Component<any, {text: string}> {
   }
 }
 
-type NameInputProps = {socket: WebSocket, newNameCallback: (newName: string) => void};
+type NameInputProps = {
+  nameCallback: (name: string) => void,
+  newNameCallback: (newName: string) => void
+};
 
 class NameInput extends React.Component<NameInputProps, {message: string | null}> {
   inputRef: React.RefObject<HTMLInputElement>;
@@ -148,7 +178,7 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
     this.handleNameResponse = this.handleNameResponse.bind(this);
   }
 
-  componentWillMount() {
+  componentDidMount() {
     eventHandler.onName(this.handleNameResponse);
   }
 
@@ -164,11 +194,7 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
   sendNameRequest() {
     console.log(this.inputRef.current?.value);
     if(this.inputRef.current !== null) {
-      let request: data.ClientMessageRequestName = {
-        type: "name",
-        name: this.inputRef.current.value
-      };
-      this.props.socket.send(JSON.stringify(request));
+      this.props.nameCallback(this.inputRef.current.value);
     }
   }
 
@@ -197,7 +223,8 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
 interface AppProps {
   appendCallback: (text: string) => void,
   replaceCallback: (text: string, offset: number) => void,
-  socket: WebSocket
+  //socket: WebSocket
+  nameCallback: (name: string) => void
 }
 
 interface AppState {
@@ -224,7 +251,7 @@ class App extends React.Component<AppProps, AppState> {
     if(this.state.name == null) {
       return (
         <div className="App">
-          <NameInput newNameCallback={this.newNameCallback} socket={this.props.socket}/>
+          <NameInput newNameCallback={this.newNameCallback} nameCallback={this.props.nameCallback}/>
         </div>
       )
     }

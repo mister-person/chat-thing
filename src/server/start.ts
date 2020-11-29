@@ -1,6 +1,7 @@
 import express from "express";
 import * as http from "http";
 import * as WebSocket from "ws";
+import * as createProxyMiddleware from 'http-proxy-middleware';
 
 import {Connections} from './connections';
 
@@ -37,7 +38,7 @@ app.use((_, res) => {
 });
 
 const server = app.listen(port, () => {
-    //console.log("thingie");
+    //console.log("connection");
 });
 
 const wsServer = new WebSocket.Server({noServer: true});
@@ -46,20 +47,26 @@ wsServer.on("connection", (socket: WebSocket, _request: http.IncomingMessage) =>
   connections.newConnection(socket);
 });
 
+//let people know if server closes, when ctrl-c is pressed
 process.on('SIGINT', function() {
   console.log("Caught interrupt signal");
 
   for(let i = 0; i < connections.connections.length; i++) {
     connections.connections[i].socket.send(JSON.stringify({type: "adduser", name: "SERVER"}));
-    connections.connections[i].socket.send(JSON.stringify({type: "replace", name: "SERVER", text: "Server Shutting Down", offset: 0}));
+    let msgPacket = {type: "replace", name: "SERVER", text: "Server Shutting Down", offset: 0};
+    connections.connections[i].socket.send(JSON.stringify(msgPacket));
   }
 
   process.exit();
 });
 
 server.on('upgrade', (request, socket, head) => {
-    wsServer.handleUpgrade(request, socket, head, socket => {
-        wsServer.emit('connection', socket, request);
-    });
+  //TODO actually check url
+  console.log("upgread request");
+  wsServer.handleUpgrade(request, socket, head, socket => {
+    wsServer.emit('connection', socket, request);
+  });
 });
 
+server.on("connection", () => {console.log("connection.")});
+server.on("request", () => {console.log("request.")});

@@ -2,7 +2,6 @@
   "name": "test",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:3001",
   "dependencies": {
     "@testing-library/jest-dom": "^5.11.5",
     "@testing-library/react": "^11.1.2",
@@ -11,6 +10,7 @@
     "@types/react": "^16.9.56",
     "@types/react-dom": "^16.9.9",
     "@types/ws": "^7.4.0",
+    "http-proxy-middleware": "^1.0.6",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
     "react-scripts": "4.0.0",
@@ -20,6 +20,7 @@
   },
   "scripts": {
     "start": "BROWSER=none react-scripts build; npm run buildServer; npm run runServer",
+    "startServer": "npm run buildServer; npm run runServer",
     "buildServer": "tsc --esModuleInterop --outDir serverBuild src/server/start.ts",
     "runServer": "node serverBuild/server/start.js",
     "startDev": "BROWSER=none react-scripts start",

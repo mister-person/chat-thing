@@ -16,6 +16,8 @@ export class Connections {
   newConnection(socket: WebSocket) {
     let person: Person | null = null;
 
+    console.log("connections length: " + this.connections.length);
+
     socket.on("close", (code: number, reason: string) => {
       console.log(`close ${code} because "${reason}" for ${person}`);
       if(person !== null) {
@@ -30,7 +32,7 @@ export class Connections {
 
     socket.on("message", (message: WebSocket.Data) => {
       if(typeof(message) === "string") {
-        console.log(message);
+        console.log("received packet " + message);
         if(message.startsWith("ping")) {
             socket.send("pong " + message.slice(4));
             return;

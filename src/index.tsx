@@ -11,18 +11,32 @@ const socket = new WebSocket(protocol + window.location.host + "/chat");
 export let eventHandler = new ChatEventHandler(socket);
 
 //TODO put these somewhere else
+//TODO and remember the one in app.tsx
 let appendCallback = function(text: string) {
   replaceCallback(text, 0);
 }
 
 //TODO if socket down, cache and wait
 let replaceCallback = function(text: string, offset: number) {
+  console.log("in replace callback");
   socket.send(JSON.stringify({type: "replace", text, offset}));
 }
 
+let nameCallback = function(name: string) {
+  console.log("in name callback");
+  let request = {
+    type: "name",
+    name: name
+  };
+  socket.send(JSON.stringify(request));
+}
+
+//work around bug in create-react-app
+fetch("/chat/");
+
 ReactDOM.render(
   <React.StrictMode>
-    <App appendCallback={appendCallback} replaceCallback={replaceCallback} socket={socket}/>
+    <App appendCallback={appendCallback} replaceCallback={replaceCallback} nameCallback={nameCallback}/>
   </React.StrictMode>,
   document.getElementById('root')
 );
