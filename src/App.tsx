@@ -38,6 +38,12 @@ class Message extends React.Component<MessageProps, {text: string}> {
       let numLines = rects.length;
 
       //TODO make this less spaghetti
+      //I want to delete only the top line if there are
+      //more than maxLines lines, but I couldn't find a way
+      //to find where the line breaks, only how many lines there
+      //are and how long they are in pixels ...? so this deletes
+      //one character at a time until there's 1 fewer line and 
+      //the first and last remaining line are the same length as before.
       if(numLines > this.props.maxLines) {
         let lastLineRight = rects[numLines - 1].right;
         let firstLineRight = rects[1].right;
