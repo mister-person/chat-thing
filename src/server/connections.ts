@@ -147,7 +147,8 @@ export class Connections {
       slice = "";//TODO maybe test this
     }
     let newText = slice + message.text;
-    personFrom.chatHistory = newText.slice(-50);
+    //TODO magic number
+    personFrom.chatHistory = newText.slice(-600);
   }
 
   handleAppend(message: data.ClientMessageAppend, personFrom: Person) {

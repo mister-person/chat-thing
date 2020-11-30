@@ -3,13 +3,26 @@ import {eventHandler} from './index';
 import React from 'react';
 import * as data from './chatData';
 
-class Message extends React.Component<{name: string}, {text: string}> {
-  constructor(props: {name: string}) {
+interface MessageProps {
+  name: string,
+  maxLines: number,
+  width: number
+}
+
+class Message extends React.Component<MessageProps, {text: string}> {
+  static defaultProps = {maxLines: 4, width: 500};
+
+  lines: Array<string> = [""];
+
+  ref: React.RefObject<HTMLParagraphElement>;
+  constructor(props: MessageProps) {
     super(props);
     this.state = {text: ""};
 
     this.appendText = this.appendText.bind(this);
     this.replaceText = this.replaceText.bind(this);
+
+    this.ref = React.createRef();
   }
 
   componentDidMount() {
@@ -19,21 +32,72 @@ class Message extends React.Component<{name: string}, {text: string}> {
     eventHandler.onReplace(this.props.name, this.replaceText);
   }
 
+  componentDidUpdate() {
+    if(this.ref.current != null) {
+      let rects = this.ref.current.getClientRects();
+      let numLines = rects.length;
+
+      //TODO make this less spaghetti
+      if(numLines > this.props.maxLines) {
+        let lastLineRight = rects[numLines - 1].right;
+        let firstLineRight = rects[1].right;
+        let numLinesStart = numLines;
+
+        if(this.ref.current.textContent !== null) {
+          const text = this.ref.current.textContent;
+
+          for(var i = 0; i < text.length; i++) {
+            this.ref.current.textContent = text.slice(i);
+
+            rects = this.ref.current.getClientRects();
+            numLines = rects.length;
+            if(numLines < numLinesStart) {
+              if(rects[numLines - 1].right === lastLineRight && rects[0].right <= firstLineRight) {
+                console.log("breaking");
+                break;
+              }
+            }
+          }
+          this.setState({text: this.ref.current.textContent});
+        }
+      }
+    }
+  }
+
   appendText(text: string) {
     this.replaceText(text, 0);
   }
 
   replaceText(text: string, offset: number) {
     this.setState((oldState, _props) => {
-      //TODO magic number
       //can't use negative slice index because would be wrong for offset = 0
-      console.log(text);
       let newText = oldState.text.slice(0, oldState.text.length - offset) + text;
-      return {text: newText.slice(-50)};
+      return {text: newText};
     });
   }
 
+  getTextWidth(text: string, font: string) {
+    let canvas = document.createElement("canvas");
+    let context = canvas.getContext("2d")!;
+    context.font = font;
+    return context.measureText(text).width;
+  }
+
+  splitText(text: string) {
+    let font = "";
+    if(this.ref.current === null) {
+      console.log("error getting font");
+    }
+    else {
+      font = window.getComputedStyle(this.ref.current).font;
+    }
+    let width = this.getTextWidth(text, font);
+
+    return text;
+  }
+
   render() {
+    console.log("text: " + this.state.text);
     return (
       <div className="message">
         <div className="message-name">
@@ -41,9 +105,11 @@ class Message extends React.Component<{name: string}, {text: string}> {
             {this.props.name}
           </span>
         </div>
-        <div className="message-text">
-          {this.state.text === "" ? <br/> : this.state.text}
-        </div>
+          <p className="message-text">
+            <span ref={this.ref}>
+              {this.splitText(this.state.text)}
+            </span>
+          </p>
       </div>
     )
   }
@@ -126,13 +192,11 @@ class ChatInput extends React.Component<any, ChatInputState> {
     return true;
   }
 
-  handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+  handleChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
     this.setState((prevState, _props) => {
-      console.log("handle change set state");
 
       let newText = event.target.value;
       let oldText = prevState.text;
-      console.log("new:old " + newText + ":" + oldText);
 
       //calculate what new text was added to text box
       //offset is how many characters from the right of
@@ -157,9 +221,12 @@ class ChatInput extends React.Component<any, ChatInputState> {
       }
       newOffset += prevState.unsentOffset;
 
+      newText = newText.slice(-10);
+      //trim everything before any newline, unless it ends with newline
+      newText = newText.replace(/^.*\n([^\n])/g, (_, p1) => p1);
       //TODO magic number
       return {
-        text: newText.slice(-10),
+        text: newText,
         unsentText: newUnsentText,
         unsentOffset: newOffset
       };
@@ -168,9 +235,9 @@ class ChatInput extends React.Component<any, ChatInputState> {
 
   render() {
     return (
-      <input type="text" className="chat-input" autoFocus value={this.state.text} onChange={this.handleChange}>
+      <textarea className="chat-input" autoFocus value={this.state.text} onChange={this.handleChange}>
           
-      </input>
+      </textarea>
     )
   }
 }
