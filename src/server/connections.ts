@@ -2,21 +2,23 @@ import * as WebSocket from 'ws';
 import * as data from '../chatData';
 //import * as rt from 'runtypes';
 
-//TODO some chat history
-
-type Person = {name: string, chatHistory: string, socket: WebSocket};
+type User = {name: string, socket: WebSocket};
+type Room = {name: string, people: Array<{self: User, chatHistory: string}>};
 
 export class Connections {
-  connections: Array<Person>;
+  rooms: Array<Room>;
 
   constructor() {
-    this.connections = [];
+    this.rooms = []
+    this.rooms.push({name: "default room", people: []})
+    this.rooms.push({name: "new room test", people: []})
   }
-  
-  newConnection(socket: WebSocket) {
-    let person: Person | null = null;
 
-    console.log("connections length: " + this.connections.length);
+  newConnection(socket: WebSocket) {
+    let connection: {user: User, room: Room} | null = null;
+
+    console.log("user count: " + this.rooms.reduce(
+      (count: number, room: Room) => count + room.people.length, 0));
 
     socket.on("error", (socket: any, err: any) => {
       console.log("error on socket");
@@ -25,14 +27,15 @@ export class Connections {
     });
 
     socket.on("close", (code: number, reason: string) => {
-      console.log(`close ${code} because "${reason}" for ${person}`);
-      if(person !== null) {
-        this.connections = this.connections.filter((connection) => connection.socket !== socket);
-        let deluserpacket: data.ServerMessageDelUser = {
-          type: "deluser",
-          name: person.name
+      console.log(`close ${code} because "${reason}" for ${connection === null ? null : connection.user}`);
+      if(connection !== null) {
+        this.leaveRoom(connection.user, connection.room);
+
+        /*remove empty rooms
+        if(connection.room.people.length === 0) {
+          this.rooms = this.rooms.filter(otherRoom => connection?.room !== otherRoom);
         }
-        this.sendToAll(deluserpacket);
+        */
       }
     });
 
@@ -45,17 +48,30 @@ export class Connections {
         }
         try {
           let messageJson = JSON.parse(message);
-          if(person === null) {
+          if(connection === null) {
             if(data.ClientMessageRequestName.guard(messageJson)) {
-              person = this.handleNameRequest(messageJson, socket);
+              let user = this.handleNameRequest(messageJson, socket);
+              if(user !== null) {
+                this.joinRoom(user, this.getDefaultRoom());
+                connection = {user: user, room: this.getDefaultRoom()};
+              }
             }
           }
           else {
             if(data.ClientMessageAppend.guard(messageJson)) {
-              this.handleAppend(messageJson, person);
+              this.handleAppend(messageJson, connection.user, connection.room);
             }
             if(data.ClientMessageReplace.guard(messageJson)) {
-              this.handleReplace(messageJson, person);
+              this.handleReplace(messageJson, connection.user, connection.room);
+              if(messageJson.text === "@") {
+                this.leaveRoom(connection.user, connection.room);
+                connection.room = this.rooms[1];
+                this.joinRoom(connection.user, connection.room);
+                this.rooms.map(room => 
+                  console.log(`people in room ${room.name}: ${JSON.stringify(room.people.map(p => p.self.name))}`)
+                );
+              }
+
             }
           }
         } catch(e) {
@@ -63,6 +79,13 @@ export class Connections {
         }
       }
     });
+  }
+
+  getDefaultRoom(): Room {
+    if(this.rooms.length === 0) {
+      this.rooms.push({name: "default room", people: []})
+    }
+    return this.rooms[0];
   }
 
   nameResponseError(error: string): data.ServerMessageNameResponse {
@@ -73,92 +96,120 @@ export class Connections {
     }
   }
 
-  handleNameRequest(jsonMessage: data.ClientMessageRequestName, socket: WebSocket): Person | null {
+  handleNameRequest(jsonMessage: data.ClientMessageRequestName, socket: WebSocket): User | null {
     //TODO validate
     if(jsonMessage.name === "") {
       socket.send(JSON.stringify(this.nameResponseError("name can't be empty")));
       return null;
     }
-    else if(this.connections.find(person => person.name === jsonMessage.name) !== undefined) {
+    else if(this.rooms
+      .flatMap(room => room.people)
+      .find(user => user.self.name === jsonMessage.name) !== undefined
+    ) {
       socket.send(JSON.stringify(this.nameResponseError("name already taken")));
       return null;
     }
     else {
-      let person: Person = {
+      let user: User = {
         name: jsonMessage.name,
         socket: socket,
-        chatHistory: ""
       }
-      this.logIn(person);
-      return person;
+
+      let nameResponse: data.ServerMessageNameResponse = {
+        type: "name",
+        newName: user.name,
+        isTaken: false
+      };
+      user.socket.send(JSON.stringify(nameResponse));
+
+      return user;
     }
   }
 
-  logIn(person: Person) {
-    let nameResponse: data.ServerMessageNameResponse = {
-      type: "name",
-      newName: person.name,
-      isTaken: false
-    };
-    person.socket.send(JSON.stringify(nameResponse));
+  joinRoom(user: User, room: Room) {
 
-    this.connections.push(person);
-
-    console.log(`new person ${person.name}`);
+    console.log(`${user.name} joined ${room.name}`);
 
     //send this new user's name to everyone
     let newUserName: data.ServerMessageAddUser = {
       type: "adduser",
-      name: person.name
+      name: user.name
     };
-    //only send one's name to themself once, TODO change to 0 times
-    //this.sendToAllExcept(newUserName, name);
-    this.connections.map((con) => {
-      if(person.name !== con.name) {
-        con.socket.send(JSON.stringify(newUserName));
-      }
+    this.sendToRoom(newUserName, room);
 
+    //putting this here sends name to themselves, TODO change
+    room.people.push({self: user, chatHistory: ""});
+
+    let joinRoom: data.ServerMessageJoinRoom = {
+      type: "joinroom",
+      room: room.name,
+      users: room.people.map(user => {
+        return {name: user.self.name, hist: user.chatHistory}
+      })
+    };
+    user.socket.send(JSON.stringify(joinRoom));
+    //this.sendToAllExcept(newUserName, name);
+    /*
+    room.people.map((otherUser) => {
       //send everyone's name to this new user
       let toNewUser: data.ServerMessageAddUser = {
         type: "adduser",
-        name: con.name
+        name: otherUser.self.name
       }
-      person.socket.send(JSON.stringify(toNewUser));
+      user.socket.send(JSON.stringify(toNewUser));
       let history: data.ServerMessageReplace = {
         type: "replace",
-        name: con.name,
-        text: con.chatHistory,
+        name: otherUser.self.name,
+        text: otherUser.chatHistory,
         offset: 0
       }
-      person.socket.send(JSON.stringify(history));
+      user.socket.send(JSON.stringify(history));
     });
+    */
   }
 
-  handleReplace(message: data.ClientMessageReplace, personFrom: Person) {
+  leaveRoom(user: User, room: Room) {
+    room.people = room.people.filter((roomUser) => roomUser.self !== user);
+    
+    let deluserpacket: data.ServerMessageDelUser = {
+      type: "deluser",
+      name: user.name
+    }
+    this.sendToRoom(deluserpacket, room);
+  }
+
+  handleReplace(message: data.ClientMessageReplace, userFrom: User, room: Room) {
+    let userInRoom = room.people.find((user) => user.self === userFrom);
+    if(userInRoom === undefined) {
+      console.log(`user ${userFrom.name} not in room ${room.name}`);
+      console.log(`room ${room.name} contains ${room.people.map(p => p.self.name)}`)
+      return;
+    }
     let packet: data.ServerMessageReplace = {
       type: "replace",
-      name: personFrom.name,
+      name: userFrom.name,
       text: message.text,
       offset: message.offset
     };
-    this.sendToAll(packet);
-    let slice = personFrom.chatHistory.slice(0, personFrom.chatHistory.length - message.offset)
-    if(personFrom.chatHistory.length - message.offset < 0) {
+    this.sendToRoom(packet, room);
+
+    let slice = userInRoom.chatHistory.slice(0, userInRoom.chatHistory.length - message.offset)
+    if(userInRoom.chatHistory.length - message.offset < 0) {
       slice = "";//TODO maybe test this
     }
     let newText = slice + message.text;
     //TODO magic number
-    personFrom.chatHistory = newText.slice(-600);
+    userInRoom.chatHistory = newText.slice(-600);
   }
 
-  handleAppend(message: data.ClientMessageAppend, personFrom: Person) {
+  handleAppend(message: data.ClientMessageAppend, userFrom: User, room: Room) {
     console.log("got an append: " + JSON.stringify(message));
     let replace: data.ClientMessageReplace = {...message, type: "replace", offset: 0};
-    this.handleReplace(replace, personFrom);
+    this.handleReplace(replace, userFrom, room);
   /*
     let packet: data.ServerMessageAppend = {
       type: "append",
-      name: personFrom,
+      name: userFrom,
       text: message.text
     };
     console.log("sending " + JSON.stringify(packet));
@@ -166,15 +217,31 @@ export class Connections {
   */
   }
 
-  sendToAllExcept(packet: data.ServerMessageAppend, person: Person) {
+/*
+  joinRoom(user: Person, room: Room) {
+    room.people.map(roomPerson => {
+      roomPerson.person.socket.send
+    });
+    room.people.push(person);
+  }
+*/
+
+/*
+  sendToAllExcept(packet: data.ServerMessageAppend, user: Person) {
     this.connections.map((con) => {
-      if(con.name !== person.name) {
+      if(con.name !== user.name) {
         con.socket.send(JSON.stringify(packet))
       }
     });
   }
+*/
 
   sendToAll(packet: data.ServerMessage) {
-    this.connections.map((con) => con.socket.send(JSON.stringify(packet)));
+    this.rooms.flatMap(room => room.people)
+      .map((user) => user.self.socket.send(JSON.stringify(packet)));
+  }
+
+  sendToRoom(packet: data.ServerMessage, room: Room) {
+    room.people.map((user) => user.self.socket.send(JSON.stringify(packet)));
   }
 }

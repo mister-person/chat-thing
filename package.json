@@ -21,7 +21,7 @@
   "scripts": {
     "start": "BROWSER=none react-scripts build; npm run buildServer; npm run runServer",
     "startServer": "npm run buildServer; npm run runServer",
-    "buildServer": "tsc --esModuleInterop --outDir serverBuild src/server/start.ts",
+    "buildServer": "tsc --lib es2019 --esModuleInterop --outDir serverBuild src/server/start.ts",
     "runServer": "node serverBuild/server/start.js",
     "startDev": "BROWSER=none react-scripts start",
     "build": "react-scripts build",

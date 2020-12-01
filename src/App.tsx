@@ -6,18 +6,17 @@ import * as data from './chatData';
 interface MessageProps {
   name: string,
   maxLines: number,
-  width: number
+  width: number,
+  initialText: string
 }
 
 class Message extends React.Component<MessageProps, {text: string}> {
-  static defaultProps = {maxLines: 4, width: 500};
-
-  lines: Array<string> = [""];
+  static defaultProps = {maxLines: 4, width: 500, initialText: ""};
 
   ref: React.RefObject<HTMLParagraphElement>;
   constructor(props: MessageProps) {
     super(props);
-    this.state = {text: ""};
+    this.state = {text: this.props.initialText};
 
     this.appendText = this.appendText.bind(this);
     this.replaceText = this.replaceText.bind(this);
@@ -28,12 +27,15 @@ class Message extends React.Component<MessageProps, {text: string}> {
   componentDidMount() {
     //subscribe to update on name
     //TODO unregister these
+    //TODO also I should probably be passing these in somehow
     eventHandler.onAppend(this.props.name, this.appendText);
     eventHandler.onReplace(this.props.name, this.replaceText);
   }
 
   componentDidUpdate() {
     if(this.ref.current != null) {
+      const textContentSave = this.ref.current.textContent;
+      this.ref.current.textContent = this.fixNewline(this.state.text);
       let rects = this.ref.current.getClientRects();
       let numLines = rects.length;
 
@@ -64,9 +66,11 @@ class Message extends React.Component<MessageProps, {text: string}> {
               }
             }
           }
-          this.setState({text: this.ref.current.textContent});
+          this.setState({text: this.unfixNewline(this.ref.current.textContent)});
         }
       }
+      
+      this.ref.current.textContent = textContentSave;
     }
   }
 
@@ -82,23 +86,18 @@ class Message extends React.Component<MessageProps, {text: string}> {
     });
   }
 
-  getTextWidth(text: string, font: string) {
-    let canvas = document.createElement("canvas");
-    let context = canvas.getContext("2d")!;
-    context.font = font;
-    return context.measureText(text).width;
+  //if a <p> ends with a newline apparently it doesn't show up, so I add another one
+  fixNewline(text: string) {
+    if(text.endsWith("\n")) {
+      return text + "\n";
+    }
+    return text;
   }
 
-  splitText(text: string) {
-    let font = "";
-    if(this.ref.current === null) {
-      console.log("error getting font");
+  unfixNewline(text: string) {
+    if(text.endsWith("\n\n")) {
+      return text.slice(0, -1);
     }
-    else {
-      font = window.getComputedStyle(this.ref.current).font;
-    }
-    let width = this.getTextWidth(text, font);
-
     return text;
   }
 
@@ -113,7 +112,7 @@ class Message extends React.Component<MessageProps, {text: string}> {
         </div>
           <p className="message-text">
             <span ref={this.ref}>
-              {this.splitText(this.state.text)}
+              {this.fixNewline(this.state.text)}
             </span>
           </p>
       </div>
@@ -122,7 +121,8 @@ class Message extends React.Component<MessageProps, {text: string}> {
 }
 
 interface MessagelistState {
-  messages: Array<{name: string}>
+  messages: Array<{name: string, initialText?: string}>,
+  roomName: string
 }
 
 class MessageList extends React.Component<{}, MessagelistState> {
@@ -130,11 +130,13 @@ class MessageList extends React.Component<{}, MessagelistState> {
     super(props);
 
     this.state = {
-      messages: []
+      messages: [],
+      roomName: ""
     };
 
     this.addUser = this.addUser.bind(this);
     this.removeUser = this.removeUser.bind(this);
+    this.newRoom = this.newRoom.bind(this);
     //this.receivePacket = this.receivePacket.bind(this);
   }
 
@@ -142,6 +144,7 @@ class MessageList extends React.Component<{}, MessagelistState> {
     //TODO unregister these
     eventHandler.onAddUser(this.addUser);
     eventHandler.onDelUser(this.removeUser);
+    eventHandler.onNewRoom(this.newRoom);
   }
 
   componentWillUnmount() {
@@ -159,10 +162,25 @@ class MessageList extends React.Component<{}, MessagelistState> {
     this.setState({messages: newMessages});
   }
 
+  newRoom(room: string, users: Array<{name: string, hist: string}>) {
+    let newMessages = users.map(user => {return {name: user.name, initialText: user.hist}});
+    console.log("joining new room " + newMessages);
+    this.setState({messages: newMessages, roomName: room});
+  }
+
   render() {
-    return <div className="message-list">
-      {this.state.messages.map((message) => <Message key={message.name} name={message.name}/>)}
-    </div>;
+    return (
+      <>
+        <div className="room-name">
+          {this.state.roomName}
+        </div>
+        <div className="message-list">
+          {this.state.messages.map((message) => 
+            <Message key={message.name} name={message.name} initialText={message.initialText}/>
+          )}
+        </div>
+      </>
+    );
   }
 }
 

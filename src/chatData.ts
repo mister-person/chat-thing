@@ -15,6 +15,16 @@ export const ServerMessageReplace = rt.Record({
 });
 export type ServerMessageReplace  = rt.Static<typeof ServerMessageReplace>;
 
+export const ServerMessageJoinRoom = rt.Record({
+  type: rt.Literal("joinroom"),
+  room: rt.String,
+  users: rt.Array(rt.Record({
+    name: rt.String,
+    hist: rt.String
+  }))
+});
+export type ServerMessageJoinRoom = rt.Static<typeof ServerMessageJoinRoom>;
+
 export const ServerMessageAddUser = rt.Record({
   type: rt.Literal("adduser"),
   name: rt.String
@@ -27,6 +37,7 @@ export const ServerMessageDelUser = rt.Record({
 });
 export type ServerMessageDelUser  = rt.Static<typeof ServerMessageDelUser>;
 
+//TODO maybe split type on isTaken
 export const ServerMessageNameResponse = rt.Record({
   type: rt.Literal("name"),
   isTaken: rt.Boolean,
@@ -38,7 +49,8 @@ export const ServerMessage = rt.Union(ServerMessageReplace,
   ServerMessageAppend,
   ServerMessageAddUser,
   ServerMessageDelUser,
-  ServerMessageNameResponse);
+  ServerMessageNameResponse,
+  ServerMessageJoinRoom);
 export type ServerMessage  = rt.Static<typeof ServerMessage>;
 
 export const ClientMessageAppend = rt.Record({

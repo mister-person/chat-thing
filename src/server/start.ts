@@ -3,6 +3,7 @@ import * as http from "http";
 import * as WebSocket from "ws";
 
 import {Connections} from './connections';
+import * as data from './../chatData';
 
 const app = express();
 
@@ -55,13 +56,10 @@ wsServer.on("connection", (socket: WebSocket, _request: http.IncomingMessage) =>
 process.on('SIGINT', function() {
   console.log("Caught interrupt signal");
 
-  for(let i = 0; i < connections.connections.length; i++) {
-    connections.connections[i].socket.send(JSON.stringify({type: "adduser", name: "SERVER"}));
-    let msgText =  "Server Shutting Down (I might just be restarting it)";
-    let msgPacket = {type: "replace", name: "SERVER", text: msgText, offset: 0};
-    connections.connections[i].socket.send(JSON.stringify(msgPacket));
-  }
-
+  connections.sendToAll({type: "adduser", name: "SERVER"});
+  let msgText =  "Server Shutting Down (I might just be restarting it)";
+  let msgPacket: data.ServerMessageReplace = {type: "replace", name: "SERVER", text: msgText, offset: 0};
+  connections.sendToAll(msgPacket);
   process.exit();
 });
 

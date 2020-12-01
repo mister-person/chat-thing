@@ -5,21 +5,15 @@ type callbackID = number;
 type stringCallback = (name: string) => void;
 type replaceCallback = (name: string, offset: number) => void;
 type nameCallback = (name: string, isTaken: boolean) => void;
+type newRoomCallback = (room: string, users: Array<{name: string, hist: string}>) => void;
 
-interface callbackElement<T> {
-  id: callbackID,
-  name?: string,
-  callback: T
-}
-
-//TODO impl other methods
-//TODO replace needs other parameter
 export class ChatEventHandler {
   addUserCallbacks: Array<{id: callbackID, callback: stringCallback}>;
   delUserCallbacks: Array<{id: callbackID, callback: stringCallback}>;
   appendCallbacks: Array<{id: callbackID, from: string, callback: stringCallback}>;
   replaceCallbacks: Array<{id: callbackID, from: string, callback: replaceCallback}>;
   nameCallbacks: Array<{id: callbackID, callback: nameCallback}>;
+  roomCallbacks: Array<{id: callbackID, callback: newRoomCallback}>;
 
   lastID: number = 0;
 
@@ -41,16 +35,15 @@ export class ChatEventHandler {
     this.appendCallbacks = [];
     this.replaceCallbacks = [];
     this.nameCallbacks = [];
+    this.roomCallbacks = [];
   }
 
   handleMessage(message: string) {
-    //TODO this works but is bad, if json is wrong, type assumptions break
-    //and validateServerMessage isn't checked
-    //TODO catch parse error
     let messageJson = {};
     try {
       messageJson = JSON.parse(message);
     } catch(e) {}
+    console.log(message);
     if(data.ServerMessageAppend.guard(messageJson)) {
       let cbList = this.appendCallbacks;
       //TODO map
@@ -82,8 +75,14 @@ export class ChatEventHandler {
     }
     if(data.ServerMessageNameResponse.guard(messageJson)) {
       let nameMessage = messageJson;
-      this.nameCallbacks.map((listElement) => {
-        listElement.callback(nameMessage.newName, nameMessage.isTaken);
+      this.nameCallbacks.map((cb) => {
+        cb.callback(nameMessage.newName, nameMessage.isTaken);
+      });
+    }
+    if(data.ServerMessageJoinRoom.guard(messageJson)) {
+      let roomMessage = messageJson;
+      this.roomCallbacks.map((cb) => {
+        cb.callback(roomMessage.room, roomMessage.users);
       });
     }
   }
@@ -120,6 +119,12 @@ export class ChatEventHandler {
   onReplace(name: string, callback: (name: string, offset: number) => void): callbackID {
     let id = this.newID();
     this.replaceCallbacks.push({id, from: name, callback});
+    return id;
+  }
+
+  onNewRoom(callback: newRoomCallback): callbackID {
+    let id = this.newID();
+    this.roomCallbacks.push({id, callback});
     return id;
   }
 

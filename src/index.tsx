@@ -10,6 +10,17 @@ const socket = new WebSocket(protocol + window.location.host + "/chat");
 
 export let eventHandler = new ChatEventHandler(socket);
 
+//TODO list:
+//chat rooms
+//logging in, at least remember name
+//moar comments lol
+//choosing colors
+//warn if not connected, 
+//in chat and choose name
+//and reconnecting
+//history in typey box
+//all the other //TODOs
+
 //TODO put these somewhere else
 //TODO and remember the one in app.tsx
 let appendCallback = function(text: string) {
