@@ -115,7 +115,16 @@ class Message extends React.Component<MessageProps, {text: string}> {
               {this.fixNewline(this.state.text)}
             </span>
           </p>
-          <p style={{color: "blue", visibility: "visible", fontSize:"20px", width:"500px", position:"fixed"}}>
+          <p style={{
+              color: "blue",
+              visibility: "hidden",
+              fontSize:"20px",
+              width:"500px",
+              position:"fixed",
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
+              overflowWrap: "break-word"
+            }}>
             <span ref={this.ref}>
               {this.fixNewline(this.state.text)}
             </span>
@@ -169,7 +178,7 @@ class MessageList extends React.Component<{}, MessagelistState> {
 
   newRoom(room: string, users: Array<{name: string, hist: string}>) {
     let newMessages = users.map(user => {return {name: user.name, initialText: user.hist}});
-    console.log("joining new room " + newMessages);
+    console.log("joining new room " + JSON.stringify(newMessages));
     this.setState({messages: newMessages, roomName: room});
   }
 
@@ -181,7 +190,7 @@ class MessageList extends React.Component<{}, MessagelistState> {
         </div>
         <div className="message-list">
           {this.state.messages.map((message) => 
-            <Message key={message.name} name={message.name} initialText={message.initialText}/>
+            <Message key={this.state.roomName + " " + message.name} name={message.name} initialText={message.initialText}/>
           )}
         </div>
       </>
@@ -331,24 +340,75 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
   }
 }
 
+interface RoomListState {
+  rooms: Array<{name: string}>
+}
+
+interface RoomListProps {
+  visible: boolean,
+  current?: string,
+  joinRoomCallback: (name: string) => void
+}
+
+class RoomList extends React.Component<RoomListProps, RoomListState> {
+  constructor(props: RoomListProps) {
+    super(props);
+
+    this.state = {
+      rooms: [{name: "asdf"}]
+    }
+
+    this.roomListCallback = this.roomListCallback.bind(this);
+
+    this.onClick = this.onClick.bind(this);
+  }
+
+  componentDidMount() {
+    eventHandler.onRoomList(this.roomListCallback);
+  }
+
+  roomListCallback(rooms: Array<{name: string}>) {
+    this.setState({rooms});
+  }
+
+  onClick(event: React.MouseEvent<HTMLDivElement, MouseEvent>, name: string) {
+    event.preventDefault();
+    this.props.joinRoomCallback(name);
+  }
+
+  render() {
+    return (
+      <div style={{visibility: this.props.visible ? "visible" : "hidden"}} className="room-list">
+        {this.state.rooms.map(room => {
+          let selected = this.props.current !== null && this.props.current === room.name;
+          return (
+            <div onClick={(e) => this.onClick(e, room.name)} className={selected ? "room" : "selected-room"}>
+              {room.name}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+}
+
 interface AppProps {
   appendCallback: (text: string) => void,
   replaceCallback: (text: string, offset: number) => void,
-  //socket: WebSocket
-  nameCallback: (name: string) => void
+  nameCallback: (name: string) => void,
+  joinRoomCallback: (name: string) => void
 }
 
 interface AppState {
-  name: string | null
+  name: string | null,
 }
 
 class App extends React.Component<AppProps, AppState> {
-
   constructor(props: AppProps) {
     super(props);
 
     this.state = {
-      name: null
+      name: null,
     }
 
     this.props.nameCallback("naim");
@@ -361,44 +421,20 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   render() {
-    if(this.state.name == null) {
-      return (
-        <div className="App">
+    return (
+      <div className="App">
+        <RoomList visible={this.state.name != null} joinRoomCallback={this.props.joinRoomCallback}/>
+        {this.state.name == null ? 
           <NameInput newNameCallback={this.newNameCallback} nameCallback={this.props.nameCallback}/>
-        </div>
-      )
-    }
-    else {
-      return (
-        <div className="App">
-          <div className="sidebar">
-            "asdf"
-          </div>
+          :
           <div className="main">
             <MessageList/>
             <ChatInput appendCallback={this.props.appendCallback} replaceCallback={this.props.replaceCallback}/>
           </div>
-        </div>
-      );
-    }
+        }
+      </div>
+    );
   }
 }
-
-/*
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-*/
 
 export default App;

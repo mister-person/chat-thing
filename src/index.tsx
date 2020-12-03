@@ -3,7 +3,8 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import {ChatEventHandler} from './clientEventHandler'
+import {ChatEventHandler} from './clientEventHandler';
+import * as data from './chatData';
 
 const protocol = ((window.location.protocol === "https:") ? "wss://" : "ws://")
 const socket = new WebSocket(protocol + window.location.host + "/chat");
@@ -11,7 +12,8 @@ const socket = new WebSocket(protocol + window.location.host + "/chat");
 export let eventHandler = new ChatEventHandler(socket);
 
 //TODO list:
-//chat rooms, client side now
+//make new chat rooms
+//user names can't have spaces
 //logging in, at least remember name
 //moar comments lol
 //choosing colors/colored chat rooms?
@@ -49,12 +51,21 @@ let nameCallback = function(name: string) {
   }
 }
 
+let joinRoomCallback = function(name: string) {
+  console.log("in join room callback");
+  let request: data.ClientMessageJoinRoom = {
+    type: "joinroom",
+    name: name
+  };
+  socket.send(JSON.stringify(request));
+}
+
 //work around bug in create-react-app
 fetch("/chat/");
 
 ReactDOM.render(
   <React.StrictMode>
-    <App appendCallback={appendCallback} replaceCallback={replaceCallback} nameCallback={nameCallback}/>
+    <App appendCallback={appendCallback} replaceCallback={replaceCallback} nameCallback={nameCallback} joinRoomCallback={joinRoomCallback}/>
   </React.StrictMode>,
   document.getElementById('root')
 );

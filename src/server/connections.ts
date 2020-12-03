@@ -39,11 +39,18 @@ export class Connections {
       }
     });
 
+    let roomList: data.ServerMessageListRooms = {
+      type: "listroom",
+      rooms: this.rooms.map(room => {return {name: room.name}})
+    };
+    setTimeout(() => socket.send(JSON.stringify(roomList)), 500);
+
     socket.on("message", (message: WebSocket.Data) => {
       if(typeof(message) === "string") {
         console.log("received packet " + message);
         if(message.startsWith("ping")) {
             socket.send("pong " + message.slice(4));
+
             return;
         }
         try {
@@ -71,7 +78,17 @@ export class Connections {
                   console.log(`people in room ${room.name}: ${JSON.stringify(room.people.map(p => p.self.name))}`)
                 );
               }
-
+            }
+            if(data.ClientMessageJoinRoom.guard(messageJson)) {
+              let roomMessage = messageJson;
+              let room = this.rooms.find((room) => room.name === roomMessage.name)
+              if(room === undefined) {
+                room = {name: roomMessage.name, people: []};
+                this.rooms.push(room);
+              }
+              this.leaveRoom(connection.user, connection.room);
+              connection.room = room;
+              this.joinRoom(connection.user, room);
             }
           }
         } catch(e) {

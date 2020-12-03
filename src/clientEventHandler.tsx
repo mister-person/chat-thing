@@ -6,6 +6,7 @@ type stringCallback = (name: string) => void;
 type replaceCallback = (name: string, offset: number) => void;
 type nameCallback = (name: string, isTaken: boolean) => void;
 type newRoomCallback = (room: string, users: Array<{name: string, hist: string}>) => void;
+type roomListCallback = (rooms: Array<{name: string}>) => void;
 
 export class ChatEventHandler {
   addUserCallbacks: Array<{id: callbackID, callback: stringCallback}>;
@@ -14,6 +15,7 @@ export class ChatEventHandler {
   replaceCallbacks: Array<{id: callbackID, from: string, callback: replaceCallback}>;
   nameCallbacks: Array<{id: callbackID, callback: nameCallback}>;
   roomCallbacks: Array<{id: callbackID, callback: newRoomCallback}>;
+  roomListCallbacks: Array<{id: callbackID, callback: roomListCallback}>;
 
   lastID: number = 0;
 
@@ -36,6 +38,7 @@ export class ChatEventHandler {
     this.replaceCallbacks = [];
     this.nameCallbacks = [];
     this.roomCallbacks = [];
+    this.roomListCallbacks = [];
   }
 
   handleMessage(message: string) {
@@ -85,6 +88,12 @@ export class ChatEventHandler {
         cb.callback(roomMessage.room, roomMessage.users);
       });
     }
+    if(data.ServerMessageListRooms.guard(messageJson)) {
+      let roomMessage = messageJson;
+      this.roomListCallbacks.map((cb) => {
+        cb.callback(roomMessage.rooms);
+      });
+    }
   }
 
   newID(): callbackID {
@@ -125,6 +134,12 @@ export class ChatEventHandler {
   onNewRoom(callback: newRoomCallback): callbackID {
     let id = this.newID();
     this.roomCallbacks.push({id, callback});
+    return id;
+  }
+
+  onRoomList(callback: roomListCallback): callbackID {
+    let id = this.newID();
+    this.roomListCallbacks.push({id, callback});
     return id;
   }
 

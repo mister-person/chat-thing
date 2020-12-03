@@ -25,6 +25,14 @@ export const ServerMessageJoinRoom = rt.Record({
 });
 export type ServerMessageJoinRoom = rt.Static<typeof ServerMessageJoinRoom>;
 
+export const ServerMessageListRooms = rt.Record({
+  type: rt.Literal("listroom"),
+  rooms: rt.Array(rt.Record({
+    name: rt.String,
+  }))
+});
+export type ServerMessageListRooms = rt.Static<typeof ServerMessageListRooms>;
+
 export const ServerMessageAddUser = rt.Record({
   type: rt.Literal("adduser"),
   name: rt.String
@@ -45,12 +53,14 @@ export const ServerMessageNameResponse = rt.Record({
 });
 export type ServerMessageNameResponse  = rt.Static<typeof ServerMessageNameResponse>;
 
-export const ServerMessage = rt.Union(ServerMessageReplace, 
+export const ServerMessage = rt.Union(
+  ServerMessageReplace, 
   ServerMessageAppend,
   ServerMessageAddUser,
   ServerMessageDelUser,
   ServerMessageNameResponse,
-  ServerMessageJoinRoom);
+  ServerMessageJoinRoom,
+  ServerMessageListRooms);
 export type ServerMessage  = rt.Static<typeof ServerMessage>;
 
 export const ClientMessageAppend = rt.Record({
@@ -72,5 +82,15 @@ export const ClientMessageRequestName = rt.Record({
 });
 export type ClientMessageRequestName  = rt.Static<typeof ClientMessageRequestName>;
 
-export const ClientMessage = rt.Union(ClientMessageAppend, ClientMessageReplace, ClientMessageRequestName);
+export const ClientMessageJoinRoom = rt.Record({
+  type: rt.Literal("joinroom"),
+  name: rt.String
+});
+export type ClientMessageJoinRoom  = rt.Static<typeof ClientMessageJoinRoom>;
+
+export const ClientMessage = rt.Union(
+  ClientMessageAppend,
+  ClientMessageReplace,
+  ClientMessageRequestName,
+  ClientMessageJoinRoom);
 export type ClientMessage  = rt.Static<typeof ClientMessage>;
