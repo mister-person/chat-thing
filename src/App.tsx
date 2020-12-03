@@ -111,6 +111,11 @@ class Message extends React.Component<MessageProps, {text: string}> {
           </span>
         </div>
           <p className="message-text">
+            <span>
+              {this.fixNewline(this.state.text)}
+            </span>
+          </p>
+          <p style={{color: "blue", visibility: "visible", fontSize:"20px", width:"500px", position:"fixed"}}>
             <span ref={this.ref}>
               {this.fixNewline(this.state.text)}
             </span>

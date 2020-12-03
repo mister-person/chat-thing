@@ -11,10 +11,10 @@ const socket = new WebSocket(protocol + window.location.host + "/chat");
 export let eventHandler = new ChatEventHandler(socket);
 
 //TODO list:
-//chat rooms
+//chat rooms, client side now
 //logging in, at least remember name
 //moar comments lol
-//choosing colors
+//choosing colors/colored chat rooms?
 //warn if not connected, 
 //in chat and choose name
 //and reconnecting
