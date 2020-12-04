@@ -25,10 +25,12 @@ export const ServerMessageJoinRoom = rt.Record({
 });
 export type ServerMessageJoinRoom = rt.Static<typeof ServerMessageJoinRoom>;
 
+//TODO don't send entire list if not all rooms changed
 export const ServerMessageListRooms = rt.Record({
   type: rt.Literal("listroom"),
   rooms: rt.Array(rt.Record({
     name: rt.String,
+    usrcount: rt.Number,
   }))
 });
 export type ServerMessageListRooms = rt.Static<typeof ServerMessageListRooms>;

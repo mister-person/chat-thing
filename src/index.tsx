@@ -12,7 +12,6 @@ const socket = new WebSocket(protocol + window.location.host + "/chat");
 export let eventHandler = new ChatEventHandler(socket);
 
 //TODO list:
-//user names can't have spaces
 //logging in, at least remember name
 //moar comments lol
 //choosing colors/colored chat rooms?

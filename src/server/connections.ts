@@ -41,7 +41,7 @@ export class Connections {
 
     let roomList: data.ServerMessageListRooms = {
       type: "listroom",
-      rooms: this.rooms.map(room => {return {name: room.name}})
+      rooms: this.rooms.map(room => {return {name: room.name, usrcount: room.people.length}})
     };
     setTimeout(() => socket.send(JSON.stringify(roomList)), 500);
 
@@ -85,11 +85,7 @@ export class Connections {
               if(room === undefined) {
                 room = {name: roomMessage.name, people: []};
                 this.rooms.push(room);
-                let roomListPacket: data.ServerMessageListRooms = {
-                  type: "listroom",
-                  rooms: this.rooms.map(room => {return {name: room.name}})
-                }
-                this.sendToAll(roomListPacket);
+                this.sendRoomListToAll();
               }
               this.leaveRoom(connection.user, connection.room);
               connection.room = room;
@@ -122,6 +118,10 @@ export class Connections {
     //TODO validate
     if(jsonMessage.name === "") {
       socket.send(JSON.stringify(this.nameResponseError("name can't be empty")));
+      return null;
+    }
+    else if(jsonMessage.name.includes(" ")) {
+      socket.send(JSON.stringify(this.nameResponseError("name can't have spaces")));
       return null;
     }
     else if(this.rooms
@@ -170,6 +170,8 @@ export class Connections {
       })
     };
     user.socket.send(JSON.stringify(joinRoom));
+
+    this.sendRoomListToAll();
     //this.sendToAllExcept(newUserName, name);
     /*
     room.people.map((otherUser) => {
@@ -198,6 +200,8 @@ export class Connections {
       name: user.name
     }
     this.sendToRoom(deluserpacket, room);
+
+    this.sendRoomListToAll();
   }
 
   handleReplace(message: data.ClientMessageReplace, userFrom: User, room: Room) {
@@ -222,6 +226,14 @@ export class Connections {
     let newText = slice + message.text;
     //TODO magic number
     userInRoom.chatHistory = newText.slice(-600);
+  }
+
+  sendRoomListToAll() {
+    let roomListPacket: data.ServerMessageListRooms = {
+      type: "listroom",
+      rooms: this.rooms.map(room => {return {name: room.name, usrcount: room.people.length}})
+    }
+    this.sendToAll(roomListPacket);
   }
 
   handleAppend(message: data.ClientMessageAppend, userFrom: User, room: Room) {

@@ -6,7 +6,7 @@ type stringCallback = (name: string) => void;
 type replaceCallback = (name: string, offset: number) => void;
 type nameCallback = (name: string, isTaken: boolean) => void;
 type newRoomCallback = (room: string, users: Array<{name: string, hist: string}>) => void;
-type roomListCallback = (rooms: Array<{name: string}>) => void;
+type roomListCallback = (rooms: Array<{name: string, usrcount: number}>) => void;
 
 export class ChatEventHandler {
   addUserCallbacks: Array<{id: callbackID, callback: stringCallback}>;
@@ -138,6 +138,7 @@ export class ChatEventHandler {
   }
 
   onRoomList(callback: roomListCallback): callbackID {
+    console.log("DSJFIO");
     let id = this.newID();
     this.roomListCallbacks.push({id, callback});
     return id;

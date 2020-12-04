@@ -341,7 +341,7 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
 }
 
 interface RoomListState {
-  rooms: Array<{name: string}>,
+  rooms: Array<{name: string, usrcount: number}>,
   currentRoom: string | null,
   roomDialogue: boolean,
   roomDialogueText: string,
@@ -358,7 +358,7 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
     super(props);
 
    this.state = {
-      rooms: [{name: "asdf"}],
+      rooms: [],
       currentRoom: null,
       roomDialogue: false,
       roomDialogueText: "",
@@ -376,7 +376,7 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
     eventHandler.onNewRoom(this.onJoinRoom);
   }
 
-  roomListCallback(rooms: Array<{name: string}>) {
+  roomListCallback(rooms: Array<{name: string, usrcount: number}>) {
     this.setState({rooms});
   }
 
@@ -407,7 +407,7 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
           let selected = this.state.currentRoom !== null && this.state.currentRoom === room.name;
           return (
             <div onClick={(e) => this.onClick(e, room.name)} className={selected ? "room-selected" : "room"}>
-              {room.name}
+              {room.name + " (" + room.usrcount + ")"}
             </div>
           )
         })}
