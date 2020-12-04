@@ -85,6 +85,11 @@ export class Connections {
               if(room === undefined) {
                 room = {name: roomMessage.name, people: []};
                 this.rooms.push(room);
+                let roomListPacket: data.ServerMessageListRooms = {
+                  type: "listroom",
+                  rooms: this.rooms.map(room => {return {name: room.name}})
+                }
+                this.sendToAll(roomListPacket);
               }
               this.leaveRoom(connection.user, connection.room);
               connection.room = room;

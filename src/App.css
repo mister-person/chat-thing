@@ -10,10 +10,26 @@ body {
   background: grey;
 }
 
+/*TODO word wrap and overflow*/
 .room-list {
   width: 150px;
   position: fixed;
+  top: 15px;
+  left: 15px;
+  font-size: 20px;
   border: solid blue;
+  background-color: #d0d0d0;
+}
+
+.room:hover {
+  background-color: #d0d0f0;
+}
+
+.room-selected {
+  background-color: #8080d0;
+}
+
+.room {
 }
 
 .main {
@@ -69,6 +85,7 @@ body {
   margin-top: 10px;
   margin-bottom: 10px;
   font-size: 20px;
+  min-height: 95px;
   white-space: pre-wrap;
   display: block;
   word-wrap: break-word;
@@ -90,6 +107,7 @@ span {
   }
 
   .message-text {
+    min-height: 48px;
     font-size: 10px;
   }
 
@@ -107,6 +125,7 @@ span {
   left: 5px;
   right: 5px;
   border-style: solid solid none solid;
+  background-color: #d0d0ff;
   border-color: blue;
   border-radius: 10px;
 }

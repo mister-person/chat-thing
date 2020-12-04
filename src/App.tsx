@@ -341,34 +341,47 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
 }
 
 interface RoomListState {
-  rooms: Array<{name: string}>
+  rooms: Array<{name: string}>,
+  currentRoom: string | null,
+  roomDialogue: boolean,
+  roomDialogueText: string,
 }
 
 interface RoomListProps {
   visible: boolean,
-  current?: string,
-  joinRoomCallback: (name: string) => void
+  currentRoom?: string,
+  joinRoomCallback: (name: string) => void,
 }
 
 class RoomList extends React.Component<RoomListProps, RoomListState> {
   constructor(props: RoomListProps) {
     super(props);
 
-    this.state = {
-      rooms: [{name: "asdf"}]
+   this.state = {
+      rooms: [{name: "asdf"}],
+      currentRoom: null,
+      roomDialogue: false,
+      roomDialogueText: "",
     }
 
     this.roomListCallback = this.roomListCallback.bind(this);
 
     this.onClick = this.onClick.bind(this);
+    this.onJoinRoom = this.onJoinRoom.bind(this);
+    this.newRoomClick = this.newRoomClick.bind(this);
   }
 
   componentDidMount() {
     eventHandler.onRoomList(this.roomListCallback);
+    eventHandler.onNewRoom(this.onJoinRoom);
   }
 
   roomListCallback(rooms: Array<{name: string}>) {
     this.setState({rooms});
+  }
+
+  onJoinRoom(room: string) {
+    this.setState({currentRoom: room});
   }
 
   onClick(event: React.MouseEvent<HTMLDivElement, MouseEvent>, name: string) {
@@ -376,17 +389,42 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
     this.props.joinRoomCallback(name);
   }
 
+  newRoomClick(event: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+    event.preventDefault();
+    this.setState({roomDialogue: true});
+  }
+
+  newRoomSend(e: React.FormEvent) {
+    e.preventDefault();
+    this.props.joinRoomCallback(this.state.roomDialogueText);
+    this.setState({roomDialogue: false, roomDialogueText: ""});
+  }
+
   render() {
     return (
       <div style={{visibility: this.props.visible ? "visible" : "hidden"}} className="room-list">
         {this.state.rooms.map(room => {
-          let selected = this.props.current !== null && this.props.current === room.name;
+          let selected = this.state.currentRoom !== null && this.state.currentRoom === room.name;
           return (
-            <div onClick={(e) => this.onClick(e, room.name)} className={selected ? "room" : "selected-room"}>
+            <div onClick={(e) => this.onClick(e, room.name)} className={selected ? "room-selected" : "room"}>
               {room.name}
             </div>
           )
         })}
+        <div onClick={this.newRoomClick} className={this.state.roomDialogue ? "room-selected" : "room"}>
+          + new room...
+        </div>
+        {this.state.roomDialogue && 
+          <form onSubmit={(e) => {this.newRoomSend(e)}}>
+            <input
+              onBlur={() => this.setState({roomDialogue: false, roomDialogueText: ""})}
+              onChange={((e) => {this.setState({roomDialogueText: e.target.value})})}
+              value={this.state.roomDialogueText}
+              type="text" autoFocus>
+
+            </input>
+          </form>
+        }
       </div>
     )
   }
