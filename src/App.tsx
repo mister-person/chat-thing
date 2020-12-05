@@ -10,13 +10,18 @@ interface MessageProps {
   initialText: string
 }
 
-class Message extends React.Component<MessageProps, {text: string}> {
+interface MessageState {
+  text: string,
+  animating: boolean,
+}
+
+class Message extends React.Component<MessageProps, MessageState> {
   static defaultProps = {maxLines: 4, width: 500, initialText: ""};
 
   ref: React.RefObject<HTMLParagraphElement>;
   constructor(props: MessageProps) {
     super(props);
-    this.state = {text: this.props.initialText};
+    this.state = {text: this.props.initialText, animating: false};
 
     this.appendText = this.appendText.bind(this);
     this.replaceText = this.replaceText.bind(this);
@@ -34,43 +39,31 @@ class Message extends React.Component<MessageProps, {text: string}> {
 
   componentDidUpdate() {
     if(this.ref.current != null) {
-      const textContentSave = this.ref.current.textContent;
-      this.ref.current.textContent = this.fixNewline(this.state.text);
-      let rects = this.ref.current.getClientRects();
-      let numLines = rects.length;
-
-      //TODO make this less spaghetti
-      //I want to delete only the top line if there are
-      //more than maxLines lines, but I couldn't find a way
-      //to find where the line breaks, only how many lines there
-      //are and how long they are in pixels ...? so this deletes
-      //one character at a time until there's 1 fewer line and 
-      //the first and last remaining line are the same length as before.
-      if(numLines > this.props.maxLines) {
-        let lastLineRight = rects[numLines - 1].right;
-        let firstLineRight = rects[1].right;
-        let numLinesStart = numLines;
-
-        if(this.ref.current.textContent !== null) {
-          const text = this.ref.current.textContent;
-
-          for(var i = 0; i < text.length; i++) {
-            this.ref.current.textContent = text.slice(i);
-
-            rects = this.ref.current.getClientRects();
-            numLines = rects.length;
-            if(numLines < numLinesStart) {
-              if(rects[numLines - 1].right === lastLineRight && rects[0].right <= firstLineRight) {
-                console.log("breaking");
-                break;
-              }
-            }
-          }
-          this.setState({text: this.unfixNewline(this.ref.current.textContent)});
+      //seperate text into lines, detecting line breaks based on the
+      //x position of each character, and delete extra lines
+      let lines: Array<string> = [];
+      let lasty = Number.MAX_VALUE;
+      let line = ""
+      for(let child of Array.from(this.ref.current.children)) {
+        let y = child.getBoundingClientRect().y;
+        if(y > lasty) {
+          lines.push(line);
+          line = ""
         }
+        line += child.textContent;
+        lasty = y;
       }
-      
-      this.ref.current.textContent = textContentSave;
+      lines.push(line);
+
+      if(lines.length > this.props.maxLines) {
+        let linesToCut = lines.length - this.props.maxLines;
+        this.setState({
+          text: this.unfixNewline(lines.slice(linesToCut).join("")),
+          animating: true,
+        });
+        setTimeout(() => this.setState({animating: false}), 500);
+      }
+
     }
   }
 
@@ -110,14 +103,14 @@ class Message extends React.Component<MessageProps, {text: string}> {
             {this.props.name}
           </span>
         </div>
-          <p className="message-text">
+          <p className={"message-text" + (this.state.animating ? " message-text-anim" : "")}>
             <span>
-              {this.fixNewline(this.state.text)}
+              {this.fixNewline(this.state.text).split("").map((ch) => <span>{ch}</span>)}
             </span>
           </p>
           <p style={{
               color: "blue",
-              visibility: "hidden",
+              //visibility: "hidden",
               fontSize:"20px",
               width:"500px",
               position:"fixed",
@@ -125,8 +118,8 @@ class Message extends React.Component<MessageProps, {text: string}> {
               wordWrap: "break-word",
               overflowWrap: "break-word"
             }}>
-            <span ref={this.ref}>
-              {this.fixNewline(this.state.text)}
+            <span style={{outline: "solid"}} ref={this.ref}>
+              {this.fixNewline(this.state.text).split("").map((ch) => <span>{ch}</span>)}
             </span>
           </p>
       </div>

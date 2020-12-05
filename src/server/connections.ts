@@ -39,11 +39,13 @@ export class Connections {
       }
     });
 
+    /*
     let roomList: data.ServerMessageListRooms = {
       type: "listroom",
-      rooms: this.rooms.map(room => {return {name: room.name, usrcount: room.people.length}})
+      rooms: this.rooms.map(room => {return {name: room.name + "l", usrcount: room.people.length}})
     };
     setTimeout(() => socket.send(JSON.stringify(roomList)), 500);
+    */
 
     socket.on("message", (message: WebSocket.Data) => {
       if(typeof(message) === "string") {
