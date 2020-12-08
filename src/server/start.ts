@@ -2,7 +2,7 @@ import express from "express";
 import * as http from "http";
 import * as WebSocket from "ws";
 
-import {Connections} from './connections';
+import {Server} from './connections';
 import * as data from './../chatData';
 
 const app = express();
@@ -47,7 +47,7 @@ wsServer.on("error", (socket: WebSocket, err: Error) => {
   console.log(JSON.stringify(err));
 });
 
-const connections = new Connections();
+const connections = new Server();
 wsServer.on("connection", (socket: WebSocket, _request: http.IncomingMessage) => {
   connections.newConnection(socket);
 });

@@ -1,7 +1,6 @@
 import './App.css';
 import {eventHandler} from './index';
 import React from 'react';
-import * as data from './chatData';
 
 interface MessageProps {
   name: string,
@@ -55,13 +54,19 @@ class Message extends React.Component<MessageProps, MessageState> {
       }
       lines.push(line);
 
+      //if there are more than maxLines lines, remove the top ones
+      //and start the animation
       if(lines.length > this.props.maxLines) {
         let linesToCut = lines.length - this.props.maxLines;
         this.setState({
           text: this.unfixNewline(lines.slice(linesToCut).join("")),
-          animating: true,
         });
-        setTimeout(() => this.setState({animating: false}), 500);
+        if(!this.state.animating) {
+          setTimeout(() => this.setState({animating: false}), 500);
+          this.setState({
+            animating: true,
+          });
+        }
       }
 
     }
@@ -79,7 +84,7 @@ class Message extends React.Component<MessageProps, MessageState> {
     });
   }
 
-  //if a <p> ends with a newline apparently it doesn't show up, so I add another one
+  //if a <p> ends with a newline apparently the newline doesn't show up, so I add another one
   fixNewline(text: string) {
     if(text.endsWith("\n")) {
       return text + "\n";
@@ -110,7 +115,7 @@ class Message extends React.Component<MessageProps, MessageState> {
           </p>
           <p style={{
               color: "blue",
-              //visibility: "hidden",
+              visibility: "hidden",
               fontSize:"20px",
               width:"500px",
               position:"fixed",
@@ -183,7 +188,7 @@ class MessageList extends React.Component<{}, MessagelistState> {
         </div>
         <div className="message-list">
           {this.state.messages.map((message) => 
-            <Message key={this.state.roomName + " " + message.name} name={message.name} initialText={message.initialText}/>
+            <Message key={[this.state.roomName, message.name].toString()} name={message.name} initialText={message.initialText}/>
           )}
         </div>
       </>
@@ -197,9 +202,14 @@ interface ChatInputState {
   unsentOffset: number
 };
 
+interface ChatInputProps {
+  currentRoom: string | null,
+  replaceCallback: (text: string, offset: number) => void,
+}
+
 //TODO specify type of props
-class ChatInput extends React.Component<any, ChatInputState> {
-  constructor(props: any) {
+class ChatInput extends React.Component<ChatInputProps, ChatInputState> {
+  constructor(props: ChatInputProps) {
     super(props);
 
     this.state = {text: "", unsentText: "", unsentOffset: 0};
@@ -207,14 +217,18 @@ class ChatInput extends React.Component<any, ChatInputState> {
     this.handleChange = this.handleChange.bind(this);
   }
 
-  componentDidUpdate(_prevProps: any, prevState: ChatInputState) {
+  componentDidUpdate(prevProps: ChatInputProps, _prevState: ChatInputState) {
     if(this.state.unsentText !== "" || this.state.unsentOffset !== 0) {
       this.props.replaceCallback(this.state.unsentText, this.state.unsentOffset);
       this.setState({unsentText: "", unsentOffset: 0});
     }
+
+    if(prevProps.currentRoom !== this.props.currentRoom) {
+      this.setState({text: "", unsentText: "", unsentOffset: 0});
+    }
   }
 
-  shouldComponentUpdate(nextProps: any, nextState: ChatInputState) {
+  shouldComponentUpdate(nextProps: ChatInputProps, nextState: ChatInputState) {
     if(this.state.text === nextState.text && this.props === nextProps) {
       if(nextState.unsentText === "" && nextState.unsentOffset === 0) {
         return false;
@@ -335,15 +349,15 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
 
 interface RoomListState {
   rooms: Array<{name: string, usrcount: number}>,
-  currentRoom: string | null,
   roomDialogue: boolean,
   roomDialogueText: string,
 }
 
 interface RoomListProps {
   visible: boolean,
-  currentRoom?: string,
+  currentRoom: string | null,
   joinRoomCallback: (name: string) => void,
+  onRoomChange: (name: string) => void,
 }
 
 class RoomList extends React.Component<RoomListProps, RoomListState> {
@@ -352,7 +366,6 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
 
    this.state = {
       rooms: [],
-      currentRoom: null,
       roomDialogue: false,
       roomDialogueText: "",
     }
@@ -360,21 +373,21 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
     this.roomListCallback = this.roomListCallback.bind(this);
 
     this.onClick = this.onClick.bind(this);
-    this.onJoinRoom = this.onJoinRoom.bind(this);
+    this.onJoinRoomSuccess = this.onJoinRoomSuccess.bind(this);
     this.newRoomClick = this.newRoomClick.bind(this);
   }
 
   componentDidMount() {
     eventHandler.onRoomList(this.roomListCallback);
-    eventHandler.onNewRoom(this.onJoinRoom);
+    eventHandler.onNewRoom(this.onJoinRoomSuccess);
   }
 
   roomListCallback(rooms: Array<{name: string, usrcount: number}>) {
     this.setState({rooms});
   }
 
-  onJoinRoom(room: string) {
-    this.setState({currentRoom: room});
+  onJoinRoomSuccess(room: string) {
+    this.props.onRoomChange(room);
   }
 
   onClick(event: React.MouseEvent<HTMLDivElement, MouseEvent>, name: string) {
@@ -397,7 +410,7 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
     return (
       <div style={{visibility: this.props.visible ? "visible" : "hidden"}} className="room-list">
         {this.state.rooms.map(room => {
-          let selected = this.state.currentRoom !== null && this.state.currentRoom === room.name;
+          let selected = this.props.currentRoom !== null && this.props.currentRoom === room.name;
           return (
             <div onClick={(e) => this.onClick(e, room.name)} className={selected ? "room-selected" : "room"}>
               {room.name + " (" + room.usrcount + ")"}
@@ -424,7 +437,6 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
 }
 
 interface AppProps {
-  appendCallback: (text: string) => void,
   replaceCallback: (text: string, offset: number) => void,
   nameCallback: (name: string) => void,
   joinRoomCallback: (name: string) => void
@@ -432,6 +444,7 @@ interface AppProps {
 
 interface AppState {
   name: string | null,
+  currentRoom: string | null,
 }
 
 class App extends React.Component<AppProps, AppState> {
@@ -440,27 +453,40 @@ class App extends React.Component<AppProps, AppState> {
 
     this.state = {
       name: null,
+      currentRoom: null,
     }
 
     this.props.nameCallback("naim");
 
     this.newNameCallback = this.newNameCallback.bind(this);
+    this.changeRoomCallback = this.changeRoomCallback.bind(this);
   }
 
   newNameCallback(newName: string) {
     this.setState({name: newName});
   }
 
+  changeRoomCallback(newRoom: string) {
+    this.setState({currentRoom: newRoom});
+  }
+
   render() {
     return (
       <div className="App">
-        <RoomList visible={this.state.name != null} joinRoomCallback={this.props.joinRoomCallback}/>
+        <RoomList
+          visible={this.state.name != null}
+          joinRoomCallback={this.props.joinRoomCallback}
+          onRoomChange={this.changeRoomCallback}
+          currentRoom={this.state.currentRoom}
+          />
         {this.state.name == null ? 
           <NameInput newNameCallback={this.newNameCallback} nameCallback={this.props.nameCallback}/>
           :
           <div className="main">
             <MessageList/>
-            <ChatInput appendCallback={this.props.appendCallback} replaceCallback={this.props.replaceCallback}/>
+            <ChatInput
+              currentRoom={this.state.currentRoom}
+              replaceCallback={this.props.replaceCallback}/>
           </div>
         }
       </div>

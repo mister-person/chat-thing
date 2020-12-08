@@ -23,10 +23,6 @@ export let eventHandler = new ChatEventHandler(socket);
 
 //TODO put these somewhere else
 //TODO and remember the one in app.tsx
-let appendCallback = function(text: string) {
-  replaceCallback(text, 0);
-}
-
 //TODO if socket down, cache and wait
 let replaceCallback = function(text: string, offset: number) {
   console.log("in replace callback");
@@ -63,7 +59,7 @@ fetch("/chat/");
 
 ReactDOM.render(
   <React.StrictMode>
-    <App appendCallback={appendCallback} replaceCallback={replaceCallback} nameCallback={nameCallback} joinRoomCallback={joinRoomCallback}/>
+    <App replaceCallback={replaceCallback} nameCallback={nameCallback} joinRoomCallback={joinRoomCallback}/>
   </React.StrictMode>,
   document.getElementById('root')
 );
