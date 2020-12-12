@@ -456,7 +456,7 @@ class App extends React.Component<AppProps, AppState> {
       currentRoom: null,
     }
 
-    this.props.nameCallback("naim");
+    //this.props.nameCallback("naim");
 
     this.newNameCallback = this.newNameCallback.bind(this);
     this.changeRoomCallback = this.changeRoomCallback.bind(this);

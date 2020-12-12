@@ -12,13 +12,17 @@ const socket = new WebSocket(protocol + window.location.host + "/chat");
 export let eventHandler = new ChatEventHandler(socket);
 
 //TODO list:
-//logging in, at least remember name
+//logging in (maybe)
+//database for room names, sessions
+//change name
 //moar comments lol
 //choosing colors/colored chat rooms?
+//sort rooms by user count
 //warn if not connected, 
 //in chat and choose name
 //and reconnecting
 //history in typey box
+//afk, change title when there's unread
 //all the other //TODOs
 
 //TODO put these somewhere else

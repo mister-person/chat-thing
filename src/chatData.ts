@@ -37,7 +37,7 @@ export type ServerMessageListRooms = rt.Static<typeof ServerMessageListRooms>;
 
 export const ServerMessageAddUser = rt.Record({
   type: rt.Literal("adduser"),
-  name: rt.String
+  name: rt.String,
 });
 export type ServerMessageAddUser  = rt.Static<typeof ServerMessageAddUser>;
 

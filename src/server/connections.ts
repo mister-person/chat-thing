@@ -2,7 +2,7 @@ import * as WebSocket from 'ws';
 import * as data from '../chatData';
 //import * as rt from 'runtypes';
 
-type User = {name: string, socket: WebSocket};
+type User = {name: string, socket: WebSocket, sessionID: string};
 //type Room = {
 //  name: string,
 //  people: Array<{self: User}>,
@@ -22,12 +22,16 @@ class Room {
 class Connection {
   user: {user: User, room: Room} | null = null;
   server: Server;
+  sessionID: string;
+  socket: WebSocket;
 
-  constructor(socket: WebSocket, server: Server) {
+  constructor(socket: WebSocket, sessionID: string, server: Server) {
     this.server = server;
+    this.sessionID = sessionID;
+    this.socket = socket;
 
     socket.on("close", (code: number, reason: string) => {
-      console.log(`close ${code} because "${reason}" for ${this.user === null ? null : this.user.user}`);
+      console.log(`close ${code} because "${reason}" for ${this.user === null ? null : this.user.user.name}`);
       if(this.user !== null) {
         server.leaveRoom(this.user.user, this.user.room);
       }
@@ -83,17 +87,20 @@ class Connection {
       socket.send(JSON.stringify(this.nameResponseError("name too long")));
       return null;
     }
-    else if(this.server.rooms
-      .flatMap(room => room.people)
-      .find(user => user.name === jsonMessage.name) !== undefined
-    ) {
+    else if(this.server.getRoomWithUser(jsonMessage.name) !== undefined) {
       socket.send(JSON.stringify(this.nameResponseError("name already taken")));
       return null;
     }
     else {
+      this.logIn(jsonMessage.name);
+    }
+  }
+
+  logIn(name: string) {
       let user: User = {
-        name: jsonMessage.name,
-        socket: socket,
+        name: name,
+        socket: this.socket,
+        sessionID: this.sessionID,
       }
 
       let nameResponse: data.ServerMessageNameResponse = {
@@ -103,12 +110,10 @@ class Connection {
       };
       user.socket.send(JSON.stringify(nameResponse));
 
-      if(user !== null) {
-        let room = this.server.getDefaultRoom();
-        this.user = {user: user, room: room};
-        this.server.joinRoom(this.user.user, room);
-      }
-    }
+      let room = this.server.getDefaultRoom();
+      this.user = {user: user, room: room};
+      this.server.joinRoom(this.user.user, room);
+      this.server.sessions.set(this.sessionID, user.name);
   }
 
   //TODO move some of this back to Server class
@@ -128,7 +133,7 @@ class Connection {
     };
     this.server.sendToRoom(packet, room);
 
-    let history = room.history.get(userInRoom);
+    let history = room.history.get(userInRoom.name);
     if(history !== undefined) {
       let slice = history.slice(0, history.length - message.offset)
       if(history.length - message.offset < 0) {
@@ -136,11 +141,11 @@ class Connection {
       }
       let newText = slice + message.text;
       //TODO magic number
-      room.history.set(userInRoom, newText.slice(-600));
+      room.history.set(userInRoom.name, newText.slice(-600));
     }
     else {
-      console.log(`history for ${userInRoom} was undefined, creating.`);
-      room.history.set(userInRoom, message.text);
+      console.log(`history for ${userInRoom.name} was undefined, creating.`);
+      room.history.set(userInRoom.name, message.text);
     }
   }
 
@@ -161,17 +166,20 @@ class Connection {
 //TODO what happens if people are in a room that's not in the rooms[] list
 export class Server {
   rooms: Array<Room>;
+  sessions: Map<string, string>;
 
   constructor() {
     this.rooms = []
     this.rooms.push({name: "default room", people: [], history: new Map()})
     this.rooms.push({name: "new room test", people: [], history: new Map()})
+    this.sessions = new Map();
   }
 
-  newConnection(socket: WebSocket) {
+  newConnection(socket: WebSocket, sessionID: string) {
 
     console.log("user count: " + this.rooms.reduce(
       (count: number, room: Room) => count + room.people.length, 0));
+    console.log("users:", this.rooms.flatMap(room => room.people.map(user => user.name)));
 
     socket.on("error", (socket: any, err: any) => {
       console.log("error on socket");
@@ -179,7 +187,22 @@ export class Server {
       console.log(JSON.stringify(socket));
     });
 
-    new Connection(socket, this);
+    let name = this.sessions.get(sessionID)
+    console.log("new connection,", name, "sessionID:", sessionID);
+    if(name !== undefined) {
+      let connection = new Connection(socket, sessionID, this);
+      let user = this.getUserFromName(name);
+      let room = this.getRoomWithUser(name);
+      if(user !== undefined && room !== undefined) {
+        user?.socket.close();
+        this.leaveRoom(user, room);
+        user.name = "";//make it not kick user when socket closes
+      }
+      connection.logIn(name);
+    }
+    else {
+      new Connection(socket, sessionID, this);
+    }
 
   }
 
@@ -209,9 +232,16 @@ export class Server {
     //send this new user's name to everyone
     let newUserName: data.ServerMessageAddUser = {
       type: "adduser",
-      name: user.name
+      name: user.name,
     };
+    let newUserText: data.ServerMessageReplace = {
+      type: "replace",
+      name: user.name,
+      text: room.history.get(user.name) || "",
+      offset: 0
+    }
     this.sendToRoom(newUserName, room);
+    this.sendToRoom(newUserText, room);
 
     //TODO chathistory
     room.people.push(user);
@@ -221,7 +251,7 @@ export class Server {
       type: "joinroom",
       room: room.name,
       users: room.people.map(user => {
-        return {name: user.name, hist: room.history.get(user) || ""}
+        return {name: user.name, hist: room.history.get(user.name) || ""}
       })
     };
     user.socket.send(JSON.stringify(joinRoom));
@@ -240,6 +270,14 @@ export class Server {
     this.sendToRoom(deluserpacket, room);
 
     this.sendRoomListToAll();
+  }
+
+  getRoomWithUser(username: string): Room | undefined {
+    return this.rooms.find(room => room.people.find(user => user.name === username));
+  }
+
+  getUserFromName(username: string): User | undefined {
+    return this.rooms.flatMap(room => room.people).find(user => user.name === username);
   }
 
   sendRoomListToAll() {

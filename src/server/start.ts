@@ -1,6 +1,7 @@
 import express from "express";
 import * as http from "http";
 import * as WebSocket from "ws";
+import session from "express-session";
 
 import {Server} from './connections';
 import * as data from './../chatData';
@@ -23,15 +24,12 @@ console.log("starting on port " + port);
 
 app.use(express.static("build"));
 
-app.get("/a", (req, res) => {
-    console.log("url " + req.url);
-    console.log("baseUrl " + req.baseUrl);
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.send('test');
-    //res.status(404).end();
-    //res.end('Hello World');
+const sessionParser = session({
+  secret: "asdf",
+  resave: true,
+  saveUninitialized: true,
 });
+app.use(sessionParser);
 
 app.use((_, res) => {
     res.type('html').sendStatus(404);
@@ -43,13 +41,38 @@ const server = app.listen(port, () => {
 
 const wsServer = new WebSocket.Server({noServer: true});
 
-wsServer.on("error", (socket: WebSocket, err: Error) => {
+server.on('upgrade', (request, socket, head) => {
+  //TODO actually check url
+  console.log("upgrade request");
+  sessionParser(request, socket, () => {
+    if(request.sessionID === undefined) {
+      socket.destroy();
+      return;
+    }
+    console.log("session id:", request.sessionID);
+    console.log("session:", request.session);
+    console.log("cookie:", (request as http.IncomingMessage).headers.cookie);
+    wsServer.handleUpgrade(request, socket, head, socket => {
+      wsServer.emit('connection', socket, request);
+    });
+  });
+});
+
+wsServer.on("error", (_socket: WebSocket, err: Error) => {
   console.log(JSON.stringify(err));
 });
 
 const connections = new Server();
-wsServer.on("connection", (socket: WebSocket, _request: http.IncomingMessage) => {
-  connections.newConnection(socket);
+wsServer.on("connection", (socket: WebSocket, request: http.IncomingMessage & {session?: any, sessionID: any}) => {
+  let sessionID = undefined;
+  if(request.sessionID !== undefined && typeof(request.sessionID) === "string") {
+    sessionID = request.sessionID;
+  }
+  else {
+    socket.close();
+    return;
+  }
+  connections.newConnection(socket, sessionID);
 });
 
 //let people know if server closes, when ctrl-c is pressed
@@ -63,13 +86,5 @@ process.on('SIGINT', function() {
   process.exit();
 });
 
-server.on('upgrade', (request, socket, head) => {
-  //TODO actually check url
-  console.log("upgrade request");
-  wsServer.handleUpgrade(request, socket, head, socket => {
-    wsServer.emit('connection', socket, request);
-  });
-});
-
-server.on("connection", () => {console.log("connection.")});
-server.on("request", () => {console.log("request.")});
+//server.on("connection", () => {console.log("connection.")});
+//server.on("request", () => {console.log("request.")});
