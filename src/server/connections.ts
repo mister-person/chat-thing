@@ -2,7 +2,20 @@ import * as WebSocket from 'ws';
 import * as data from '../chatData';
 //import * as rt from 'runtypes';
 
-type User = {name: string, socket: WebSocket, sessionID: string};
+class User {
+  name: string;
+  socket: WebSocket;
+  sessionID: string
+  constructor(name: string, socket: WebSocket, sessionID: string) {
+    this.name = name
+    this.socket = socket
+    this.sessionID = sessionID
+  }
+
+  getHash() {
+    return JSON.stringify([this.name, this.sessionID]);
+  }
+}
 //type Room = {
 //  name: string,
 //  people: Array<{self: User}>,
@@ -61,6 +74,12 @@ class Connection {
             if(data.ClientMessageJoinRoom.guard(messageJson)) {
               this.handleJoinRoom(messageJson, this.user);
             }
+            if(data.ClientMessageLogout.guard(messageJson)) {
+              console.log("logging out", this.user.user.name);
+              this.server.leaveRoom(this.user.user, this.user.room);
+              this.user = null;
+              this.server.sessions.delete(this.sessionID);
+            }
           }
         } catch(e) {
           console.log("error handling message: " + e);
@@ -91,17 +110,18 @@ class Connection {
       socket.send(JSON.stringify(this.nameResponseError("name already taken")));
       return null;
     }
+    else if(Array.from(this.server.sessions.values()).find(name => name === jsonMessage.name) !== undefined) {
+      socket.send(JSON.stringify(this.nameResponseError("name already taken")));
+      console.log(JSON.stringify(this.server.sessions));
+      return null;
+    }
     else {
       this.logIn(jsonMessage.name);
     }
   }
 
   logIn(name: string) {
-      let user: User = {
-        name: name,
-        socket: this.socket,
-        sessionID: this.sessionID,
-      }
+      let user: User = new User(name, this.socket, this.sessionID)
 
       let nameResponse: data.ServerMessageNameResponse = {
         type: "name",
@@ -133,7 +153,7 @@ class Connection {
     };
     this.server.sendToRoom(packet, room);
 
-    let history = room.history.get(userInRoom.name);
+    let history = room.history.get(userInRoom.getHash());
     if(history !== undefined) {
       let slice = history.slice(0, history.length - message.offset)
       if(history.length - message.offset < 0) {
@@ -141,11 +161,11 @@ class Connection {
       }
       let newText = slice + message.text;
       //TODO magic number
-      room.history.set(userInRoom.name, newText.slice(-600));
+      room.history.set(userInRoom.getHash(), newText.slice(-600));
     }
     else {
       console.log(`history for ${userInRoom.name} was undefined, creating.`);
-      room.history.set(userInRoom.name, message.text);
+      room.history.set(userInRoom.getHash(), message.text);
     }
   }
 
@@ -176,7 +196,6 @@ export class Server {
   }
 
   newConnection(socket: WebSocket, sessionID: string) {
-
     console.log("user count: " + this.rooms.reduce(
       (count: number, room: Room) => count + room.people.length, 0));
     console.log("users:", this.rooms.flatMap(room => room.people.map(user => user.name)));
@@ -193,10 +212,11 @@ export class Server {
       let connection = new Connection(socket, sessionID, this);
       let user = this.getUserFromName(name);
       let room = this.getRoomWithUser(name);
+      //kick old user from this connection
       if(user !== undefined && room !== undefined) {
         user?.socket.close();
         this.leaveRoom(user, room);
-        user.name = "";//make it not kick user when socket closes
+        user.name = "";//make it not kick new user when socket closes
       }
       connection.logIn(name);
     }
@@ -237,7 +257,7 @@ export class Server {
     let newUserText: data.ServerMessageReplace = {
       type: "replace",
       name: user.name,
-      text: room.history.get(user.name) || "",
+      text: room.history.get(user.getHash()) || "",
       offset: 0
     }
     this.sendToRoom(newUserName, room);
@@ -251,7 +271,7 @@ export class Server {
       type: "joinroom",
       room: room.name,
       users: room.people.map(user => {
-        return {name: user.name, hist: room.history.get(user.name) || ""}
+        return {name: user.name, hist: room.history.get(user.getHash()) || ""}
       })
     };
     user.socket.send(JSON.stringify(joinRoom));

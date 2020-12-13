@@ -34,12 +34,43 @@ class Message extends React.Component<MessageProps, MessageState> {
     //TODO also I should probably be passing these in somehow
     eventHandler.onAppend(this.props.name, this.appendText);
     eventHandler.onReplace(this.props.name, this.replaceText);
+
+    this.cutExtraLines(this.getLines());
   }
 
   componentDidUpdate() {
     if(this.ref.current != null) {
-      //seperate text into lines, detecting line breaks based on the
-      //x position of each character, and delete extra lines
+
+      const lines = this.getLines();
+      //if there are more than maxLines lines, remove the top ones
+      //and start the animation
+      if(this.cutExtraLines(lines)) {
+        if(!this.state.animating) {
+          setTimeout(() => this.setState({animating: false}), 500);
+          this.setState({
+            animating: true,
+          });
+        }
+      }
+
+    }
+  }
+
+  cutExtraLines(lines: Array<string>) {
+    if(lines.length > this.props.maxLines) {
+      let linesToCut = lines.length - this.props.maxLines;
+      this.setState({
+        text: this.unfixNewline(lines.slice(linesToCut).join("")),
+      });
+      return true;
+    }
+    return false;
+  }
+
+  //seperate text into lines, detecting line breaks based on the
+  //x position of each character, and delete extra lines
+  getLines(): Array<string> {
+    if(this.ref.current != null) {
       let lines: Array<string> = [];
       let lasty = Number.MAX_VALUE;
       let line = ""
@@ -53,22 +84,11 @@ class Message extends React.Component<MessageProps, MessageState> {
         lasty = y;
       }
       lines.push(line);
-
-      //if there are more than maxLines lines, remove the top ones
-      //and start the animation
-      if(lines.length > this.props.maxLines) {
-        let linesToCut = lines.length - this.props.maxLines;
-        this.setState({
-          text: this.unfixNewline(lines.slice(linesToCut).join("")),
-        });
-        if(!this.state.animating) {
-          setTimeout(() => this.setState({animating: false}), 500);
-          this.setState({
-            animating: true,
-          });
-        }
-      }
-
+      return lines;
+    }
+    else {
+      console.log("couldn't get ref for measuring lines, this shouldn't happen");
+      return this.state.text.split("\n");
     }
   }
 
@@ -100,7 +120,6 @@ class Message extends React.Component<MessageProps, MessageState> {
   }
 
   render() {
-    console.log("text: " + this.state.text);
     return (
       <div className="message">
         <div className="message-name">
@@ -439,7 +458,8 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
 interface AppProps {
   replaceCallback: (text: string, offset: number) => void,
   nameCallback: (name: string) => void,
-  joinRoomCallback: (name: string) => void
+  joinRoomCallback: (name: string) => void,
+  logoutCallback: () => void,
 }
 
 interface AppState {
@@ -460,6 +480,12 @@ class App extends React.Component<AppProps, AppState> {
 
     this.newNameCallback = this.newNameCallback.bind(this);
     this.changeRoomCallback = this.changeRoomCallback.bind(this);
+    this.logout = this.logout.bind(this);
+  }
+
+  logout(_event: React.MouseEvent<HTMLDivElement>) {
+    this.setState({name: null, currentRoom: null});
+    this.props.logoutCallback();
   }
 
   newNameCallback(newName: string) {
@@ -473,6 +499,7 @@ class App extends React.Component<AppProps, AppState> {
   render() {
     return (
       <div className="App">
+        {this.state.name && <input type="button" value="Logout" className="logout-button" onClick={this.logout}/>}
         <RoomList
           visible={this.state.name != null}
           joinRoomCallback={this.props.joinRoomCallback}

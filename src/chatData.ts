@@ -90,9 +90,15 @@ export const ClientMessageJoinRoom = rt.Record({
 });
 export type ClientMessageJoinRoom  = rt.Static<typeof ClientMessageJoinRoom>;
 
+export const ClientMessageLogout = rt.Record({
+  type: rt.Literal("logout"),
+});
+export type ClientMessageLogout  = rt.Static<typeof ClientMessageLogout>;
+
 export const ClientMessage = rt.Union(
   ClientMessageAppend,
   ClientMessageReplace,
   ClientMessageRequestName,
-  ClientMessageJoinRoom);
+  ClientMessageJoinRoom,
+  ClientMessageLogout);
 export type ClientMessage  = rt.Static<typeof ClientMessage>;

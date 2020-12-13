@@ -15,6 +15,7 @@ export let eventHandler = new ChatEventHandler(socket);
 //logging in (maybe)
 //database for room names, sessions
 //change name
+//expire sessions
 //moar comments lol
 //choosing colors/colored chat rooms?
 //sort rooms by user count
@@ -24,6 +25,8 @@ export let eventHandler = new ChatEventHandler(socket);
 //history in typey box
 //afk, change title when there's unread
 //all the other //TODOs
+//drag and drop message boxes
+//make room list not change under mouse
 
 //TODO put these somewhere else
 //TODO and remember the one in app.tsx
@@ -58,12 +61,20 @@ let joinRoomCallback = function(name: string) {
   socket.send(JSON.stringify(request));
 }
 
+let logoutCallback = function() {
+  socket.send(JSON.stringify({type: "logout"}));
+}
+
 //work around bug in create-react-app
 fetch("/chat/");
 
 ReactDOM.render(
   <React.StrictMode>
-    <App replaceCallback={replaceCallback} nameCallback={nameCallback} joinRoomCallback={joinRoomCallback}/>
+    <App
+      replaceCallback={replaceCallback}
+      nameCallback={nameCallback}
+      joinRoomCallback={joinRoomCallback}
+      logoutCallback={logoutCallback}/>
   </React.StrictMode>,
   document.getElementById('root')
 );
