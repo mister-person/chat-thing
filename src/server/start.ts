@@ -49,9 +49,6 @@ server.on('upgrade', (request, socket, head) => {
       socket.destroy();
       return;
     }
-    console.log("session id:", request.sessionID);
-    console.log("session:", request.session);
-    console.log("cookie:", (request as http.IncomingMessage).headers.cookie);
     wsServer.handleUpgrade(request, socket, head, socket => {
       wsServer.emit('connection', socket, request);
     });

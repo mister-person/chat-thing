@@ -6,6 +6,9 @@ import reportWebVitals from './reportWebVitals';
 import {ChatEventHandler} from './clientEventHandler';
 import * as data from './chatData';
 
+//work around bug in create-react-app
+fetch("/chat/");
+
 const protocol = ((window.location.protocol === "https:") ? "wss://" : "ws://")
 const socket = new WebSocket(protocol + window.location.host + "/chat");
 
@@ -13,23 +16,18 @@ export let eventHandler = new ChatEventHandler(socket);
 
 //TODO list:
 //logging in (maybe)
+//and reconnecting
 //database for room names, sessions
-//change name
 //expire sessions
+//all the other //TODOs
 //moar comments lol
 //choosing colors/colored chat rooms?
-//sort rooms by user count
-//warn if not connected, 
-//in chat and choose name
-//and reconnecting
 //history in typey box
 //afk, change title when there's unread
-//all the other //TODOs
 //drag and drop message boxes
-//make room list not change under mouse
+//only send room list chagnes
 
 //TODO put these somewhere else
-//TODO and remember the one in app.tsx
 //TODO if socket down, cache and wait
 let replaceCallback = function(text: string, offset: number) {
   console.log("in replace callback");
@@ -65,16 +63,14 @@ let logoutCallback = function() {
   socket.send(JSON.stringify({type: "logout"}));
 }
 
-//work around bug in create-react-app
-fetch("/chat/");
-
 ReactDOM.render(
   <React.StrictMode>
     <App
       replaceCallback={replaceCallback}
       nameCallback={nameCallback}
       joinRoomCallback={joinRoomCallback}
-      logoutCallback={logoutCallback}/>
+      logoutCallback={logoutCallback}
+    />
   </React.StrictMode>,
   document.getElementById('root')
 );

@@ -54,8 +54,23 @@ class Connection {
       if(typeof(message) === "string") {
         console.log("received packet " + message);
         if(message.startsWith("ping")) {
-            socket.send("pong " + message.slice(4));
-            return;
+          socket.send("pong " + message.slice(4));
+
+          //TODO put this in a real packet
+          let name = this.server.sessions.get(sessionID)
+          if(name !== undefined) {
+            let user = this.server.getUserFromName(name);
+            let room = this.server.getRoomWithUser(name);
+            //kick old user from this connection
+            if(user !== undefined && room !== undefined) {
+              user?.socket.close();
+              this.server.leaveRoom(user, room);
+              user.name = "";//make it not kick new user when socket closes
+            }
+            this.logIn(name);
+          }
+
+          return;
         }
         try {
           let messageJson = JSON.parse(message);
@@ -97,12 +112,11 @@ class Connection {
   }
 
   handleNameRequest(jsonMessage: data.ClientMessageRequestName, socket: WebSocket) {
-    //TODO validate
     if(jsonMessage.name === "") {
       socket.send(JSON.stringify(this.nameResponseError("name can't be empty")));
       return null;
     }
-    else if(jsonMessage.name.length > 64) {
+    else if(jsonMessage.name.length > 32) {
       socket.send(JSON.stringify(this.nameResponseError("name too long")));
       return null;
     }
@@ -110,11 +124,13 @@ class Connection {
       socket.send(JSON.stringify(this.nameResponseError("name already taken")));
       return null;
     }
+    /*
     else if(Array.from(this.server.sessions.values()).find(name => name === jsonMessage.name) !== undefined) {
       socket.send(JSON.stringify(this.nameResponseError("name already taken")));
       console.log(JSON.stringify(this.server.sessions));
       return null;
     }
+    */
     else {
       this.logIn(jsonMessage.name);
     }
@@ -206,24 +222,7 @@ export class Server {
       console.log(JSON.stringify(socket));
     });
 
-    let name = this.sessions.get(sessionID)
-    console.log("new connection,", name, "sessionID:", sessionID);
-    if(name !== undefined) {
-      let connection = new Connection(socket, sessionID, this);
-      let user = this.getUserFromName(name);
-      let room = this.getRoomWithUser(name);
-      //kick old user from this connection
-      if(user !== undefined && room !== undefined) {
-        user?.socket.close();
-        this.leaveRoom(user, room);
-        user.name = "";//make it not kick new user when socket closes
-      }
-      connection.logIn(name);
-    }
-    else {
-      new Connection(socket, sessionID, this);
-    }
-
+    new Connection(socket, sessionID, this);
   }
 
   getDefaultRoom(): Room {
@@ -263,7 +262,6 @@ export class Server {
     this.sendToRoom(newUserName, room);
     this.sendToRoom(newUserText, room);
 
-    //TODO chathistory
     room.people.push(user);
 
     //send everyone's name to this user

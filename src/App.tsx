@@ -226,7 +226,6 @@ interface ChatInputProps {
   replaceCallback: (text: string, offset: number) => void,
 }
 
-//TODO specify type of props
 class ChatInput extends React.Component<ChatInputProps, ChatInputState> {
   constructor(props: ChatInputProps) {
     super(props);
@@ -285,10 +284,10 @@ class ChatInput extends React.Component<ChatInputProps, ChatInputState> {
       }
       newOffset += prevState.unsentOffset;
 
+      //TODO magic number
       newText = newText.slice(-10);
       //trim everything before any newline, unless it ends with newline
       newText = newText.replace(/^.*\n([^\n])/g, (_, p1) => p1);
-      //TODO magic number
       return {
         text: newText,
         unsentText: newUnsentText,
@@ -313,6 +312,7 @@ type NameInputProps = {
 
 class NameInput extends React.Component<NameInputProps, {message: string | null}> {
   inputRef: React.RefObject<HTMLInputElement>;
+  disconnectCallback: NodeJS.Timeout | null = null;
   
   constructor(props: NameInputProps) {
     super(props);
@@ -329,6 +329,11 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
   }
 
   handleNameResponse(newName: string, isTaken: boolean) {
+    if(this.disconnectCallback != null) {
+      clearTimeout(this.disconnectCallback);
+      this.disconnectCallback = null;
+    }
+
     if(isTaken) {
       this.setState({message: newName});
     }
@@ -342,20 +347,25 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
     if(this.inputRef.current !== null) {
       this.props.nameCallback(this.inputRef.current.value);
     }
+
+    //show disconnect message if server doesn't respond within 2 seconds
+    this.disconnectCallback = setTimeout(() => {
+      this.setState({message: "disconnected from server"});
+    }, 2000);
   }
 
   render() {
     return (
-      <form>
-        <input type="text" autoFocus ref={this.inputRef}>
+      <form className="name-input">
+        <input className="name-input-text" type="text" autoFocus ref={this.inputRef}>
           
         </input>
         <br/>
-        <label>
+        <label className="name-input-label">
           {this.state.message === null ? "" : this.state.message}
         </label>
         <br/>
-        <input type="submit" value="pick name" onClick={(e) => {
+        <input className="name-input-submit" type="submit" value="pick name" onClick={(e) => {
           e.preventDefault();
           this.sendNameRequest()
         }}>
@@ -380,6 +390,9 @@ interface RoomListProps {
 }
 
 class RoomList extends React.Component<RoomListProps, RoomListState> {
+  mouseOver = false;
+  updatedRooms: Array<{name: string, usrcount: number}> | null = null;
+
   constructor(props: RoomListProps) {
     super(props);
 
@@ -394,6 +407,8 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
     this.onClick = this.onClick.bind(this);
     this.onJoinRoomSuccess = this.onJoinRoomSuccess.bind(this);
     this.newRoomClick = this.newRoomClick.bind(this);
+    this.onMouseOver = this.onMouseOver.bind(this);
+    this.onMouseOut = this.onMouseOut.bind(this);
   }
 
   componentDidMount() {
@@ -402,7 +417,28 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
   }
 
   roomListCallback(rooms: Array<{name: string, usrcount: number}>) {
-    this.setState({rooms});
+    rooms.sort((room1, room2) => room2.usrcount - room1.usrcount);
+    if(this.mouseOver) {
+      this.updatedRooms = rooms.slice();
+
+      //only update the user count of rooms for now, not the order or the content
+      this.setState((oldState, _props) => {
+        let newCountRooms = oldState.rooms.map(oldroom => {
+          //extract the user count from the new room list
+          let newusrcount = rooms.find(newroom => oldroom.name === newroom.name)?.usrcount;
+          if(newusrcount !== undefined) {
+            return {name: oldroom.name, usrcount: newusrcount};
+          }
+          else {
+            return oldroom;
+          }
+        });
+        return {rooms: newCountRooms};
+      });
+    }
+    else {
+      this.setState({rooms});
+    }
   }
 
   onJoinRoomSuccess(room: string) {
@@ -425,9 +461,26 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
     this.setState({roomDialogue: false, roomDialogueText: ""});
   }
 
+  onMouseOver() {
+    this.mouseOver = true;
+  }
+
+  onMouseOut() {
+    this.mouseOver = false;
+    if(this.updatedRooms != null) {
+      this.setState({rooms: this.updatedRooms});
+      this.updatedRooms = null;
+    }
+  }
+
   render() {
     return (
-      <div style={{visibility: this.props.visible ? "visible" : "hidden"}} className="room-list">
+      <div
+        style={{visibility: this.props.visible ? "visible" : "hidden"}}
+        className="room-list"
+        onMouseEnter={this.onMouseOver}
+        onMouseLeave={this.onMouseOut}>
+
         {this.state.rooms.map(room => {
           let selected = this.props.currentRoom !== null && this.props.currentRoom === room.name;
           return (
@@ -478,7 +531,7 @@ class App extends React.Component<AppProps, AppState> {
 
     //this.props.nameCallback("naim");
 
-    this.newNameCallback = this.newNameCallback.bind(this);
+    this.setName = this.setName.bind(this);
     this.changeRoomCallback = this.changeRoomCallback.bind(this);
     this.logout = this.logout.bind(this);
   }
@@ -488,7 +541,7 @@ class App extends React.Component<AppProps, AppState> {
     this.props.logoutCallback();
   }
 
-  newNameCallback(newName: string) {
+  setName(newName: string) {
     this.setState({name: newName});
   }
 
@@ -497,6 +550,7 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   render() {
+    console.log("name", this.state.name);
     return (
       <div className="App">
         {this.state.name && <input type="button" value="Logout" className="logout-button" onClick={this.logout}/>}
@@ -507,7 +561,7 @@ class App extends React.Component<AppProps, AppState> {
           currentRoom={this.state.currentRoom}
           />
         {this.state.name == null ? 
-          <NameInput newNameCallback={this.newNameCallback} nameCallback={this.props.nameCallback}/>
+          <NameInput newNameCallback={this.setName} nameCallback={this.props.nameCallback}/>
           :
           <div className="main">
             <MessageList/>
