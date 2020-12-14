@@ -20,7 +20,18 @@ export class ChatEventHandler {
   lastID: number = 0;
 
   constructor(socket: WebSocket) {
-    
+    this.newSocket(socket);
+
+    this.addUserCallbacks = [];
+    this.delUserCallbacks = [];
+    this.appendCallbacks = [];
+    this.replaceCallbacks = [];
+    this.nameCallbacks = [];
+    this.roomCallbacks = [];
+    this.roomListCallbacks = [];
+  }
+
+  newSocket(socket: WebSocket) {
     socket.addEventListener("open", (event) => {
       console.log(event)
       socket.send("ping test string");
@@ -31,14 +42,6 @@ export class ChatEventHandler {
         this.handleMessage(event.data);
       }
     });
-
-    this.addUserCallbacks = [];
-    this.delUserCallbacks = [];
-    this.appendCallbacks = [];
-    this.replaceCallbacks = [];
-    this.nameCallbacks = [];
-    this.roomCallbacks = [];
-    this.roomListCallbacks = [];
   }
 
   handleMessage(message: string) {
