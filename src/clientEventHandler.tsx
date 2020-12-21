@@ -17,7 +17,7 @@ export class ChatEventHandler {
   roomCallbacks: Array<{id: callbackID, callback: newRoomCallback}>;
   roomListCallbacks: Array<{id: callbackID, callback: roomListCallback}>;
 
-  lastID: number = 0;
+  lastID: number = 1;
 
   constructor(socket: WebSocket) {
     this.newSocket(socket);
@@ -141,10 +141,32 @@ export class ChatEventHandler {
   }
 
   onRoomList(callback: roomListCallback): callbackID {
-    console.log("DSJFIO");
     let id = this.newID();
     this.roomListCallbacks.push({id, callback});
     return id;
+  }
+
+  unregister(id: callbackID) {
+    console.log("unregistering", id);
+
+    let count = 0;
+    let cb = (callback: any) => {
+      if(callback.id == id) {
+        count += 1;
+      }
+      return callback.id == id;
+    }
+    this.addUserCallbacks = this.addUserCallbacks.filter(cb);
+    this.delUserCallbacks = this.delUserCallbacks.filter(cb);
+    this.appendCallbacks = this.appendCallbacks.filter(cb);
+    this.replaceCallbacks = this.replaceCallbacks.filter(cb);
+    this.nameCallbacks = this.nameCallbacks.filter(cb);
+    this.roomCallbacks = this.roomCallbacks.filter(cb);
+    this.roomListCallbacks = this.roomListCallbacks.filter(cb);
+
+    if(count == 0) {
+      console.log("counldn't find callback with id", id);
+    }
   }
 
 }

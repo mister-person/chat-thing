@@ -18,6 +18,9 @@ interface MessageState {
 class Message extends React.Component<MessageProps, MessageState> {
   static defaultProps = {maxLines: 4, width: 500, initialText: ""};
 
+  onAppendId = 0
+  onReplaceId = 0
+
   ref: React.RefObject<HTMLParagraphElement>;
   constructor(props: MessageProps) {
     super(props);
@@ -31,12 +34,16 @@ class Message extends React.Component<MessageProps, MessageState> {
 
   componentDidMount() {
     //subscribe to update on name
-    //TODO unregister these
-    //TODO also I should probably be passing these in somehow
-    eventHandler.onAppend(this.props.name, this.appendText);
-    eventHandler.onReplace(this.props.name, this.replaceText);
+    //TODO I should probably be passing these in somehow
+    this.onAppendId = eventHandler.onAppend(this.props.name, this.appendText);
+    this.onReplaceId = eventHandler.onReplace(this.props.name, this.replaceText);
 
     this.cutExtraLines(this.getLines());
+  }
+
+  componentWillUnmount() {
+    eventHandler.unregister(this.onAppendId);
+    eventHandler.unregister(this.onReplaceId);
   }
 
   componentDidUpdate() {
@@ -130,7 +137,7 @@ class Message extends React.Component<MessageProps, MessageState> {
         </div>
           <p className={"message-text" + (this.state.animating ? " message-text-anim" : "")}>
             <span>
-              {this.fixNewline(this.state.text).split("").map((ch) => <span>{ch}</span>)}
+              {this.fixNewline(this.state.text).split("").map((ch, i) => <span key={i}>{ch}</span>)}
             </span>
           </p>
           <p style={{
@@ -144,7 +151,7 @@ class Message extends React.Component<MessageProps, MessageState> {
               overflowWrap: "break-word"
             }}>
             <span style={{outline: "solid"}} ref={this.ref}>
-              {this.fixNewline(this.state.text).split("").map((ch) => <span>{ch}</span>)}
+              {this.fixNewline(this.state.text).split("").map((ch, i) => <span key={i}>{ch}</span>)}
             </span>
           </p>
       </div>
@@ -158,6 +165,11 @@ interface MessagelistState {
 }
 
 class MessageList extends React.Component<{}, MessagelistState> {
+
+  onAddUserId = 0
+  onRemoveUserId = 0
+  onNewRoomId = 0
+
   constructor(props: {}) {
     super(props);
 
@@ -173,14 +185,15 @@ class MessageList extends React.Component<{}, MessagelistState> {
   }
 
   componentDidMount() {
-    //TODO unregister these
     eventHandler.onAddUser(this.addUser);
     eventHandler.onDelUser(this.removeUser);
     eventHandler.onNewRoom(this.newRoom);
   }
 
   componentWillUnmount() {
-    //todo unregister callback
+    eventHandler.unregister(this.onAddUserId);
+    eventHandler.unregister(this.onRemoveUserId);
+    eventHandler.unregister(this.onNewRoomId);
   }
 
   addUser(name: string) {
@@ -314,6 +327,7 @@ type NameInputProps = {
 class NameInput extends React.Component<NameInputProps, {message: string | null}> {
   inputRef: React.RefObject<HTMLInputElement>;
   disconnectCallback: NodeJS.Timeout | null = null;
+  nameResponseID = 0;
   
   constructor(props: NameInputProps) {
     super(props);
@@ -326,7 +340,11 @@ class NameInput extends React.Component<NameInputProps, {message: string | null}
   }
 
   componentDidMount() {
-    eventHandler.onName(this.handleNameResponse);
+    this.nameResponseID = eventHandler.onName(this.handleNameResponse);
+  }
+
+  componentWillUnmount() {
+    eventHandler.unregister(this.nameResponseID);
   }
 
   handleNameResponse(newName: string, isTaken: boolean) {
@@ -394,6 +412,9 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
   mouseOver = false;
   updatedRooms: Array<{name: string, usrcount: number}> | null = null;
 
+  onRoomListID = 0;
+  onNewRoomID = 0;
+
   constructor(props: RoomListProps) {
     super(props);
 
@@ -413,8 +434,13 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
   }
 
   componentDidMount() {
-    eventHandler.onRoomList(this.roomListCallback);
-    eventHandler.onNewRoom(this.onJoinRoomSuccess);
+    this.onRoomListID = eventHandler.onRoomList(this.roomListCallback);
+    this.onNewRoomID = eventHandler.onNewRoom(this.onJoinRoomSuccess);
+  }
+
+  componentWillUnmount() {
+    eventHandler.unregister(this.onRoomListID);
+    eventHandler.unregister(this.onNewRoomID);
   }
 
   roomListCallback(rooms: Array<{name: string, usrcount: number}>) {
