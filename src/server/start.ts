@@ -1,7 +1,6 @@
 import express from "express";
 import * as http from "http";
 import * as WebSocket from "ws";
-import session from "express-session";
 
 import {Server} from './connections';
 import * as data from './../chatData';
@@ -24,12 +23,14 @@ console.log("starting on port " + port);
 
 app.use(express.static("build"));
 
-const sessionParser = session({
-  secret: "asdf",
-  resave: true,
-  saveUninitialized: true,
+app.get("/chat", (_req, res, next) => {
+  if(_req.headers.connection != "upgrade") {
+    res.status(204).send();
+  }
+  else {
+    next();
+  }
 });
-app.use(sessionParser);
 
 app.use((_, res) => {
     res.type('html').sendStatus(404);
@@ -44,32 +45,18 @@ const wsServer = new WebSocket.Server({noServer: true});
 server.on('upgrade', (request, socket, head) => {
   //TODO actually check url
   console.log("upgrade request");
-  sessionParser(request, socket, () => {
-    if(request.sessionID === undefined) {
-      socket.destroy();
-      return;
-    }
-    wsServer.handleUpgrade(request, socket, head, socket => {
-      wsServer.emit('connection', socket, request);
-    });
+  wsServer.handleUpgrade(request, socket, head, socket => {
+    wsServer.emit('connection', socket, request);
   });
-});
+})
 
 wsServer.on("error", (_socket: WebSocket, err: Error) => {
   console.log(JSON.stringify(err));
 });
 
 const connections = new Server();
-wsServer.on("connection", (socket: WebSocket, request: http.IncomingMessage & {session?: any, sessionID: any}) => {
-  let sessionID = undefined;
-  if(request.sessionID !== undefined && typeof(request.sessionID) === "string") {
-    sessionID = request.sessionID;
-  }
-  else {
-    socket.close();
-    return;
-  }
-  connections.newConnection(socket, sessionID);
+wsServer.on("connection", (socket: WebSocket, _request: http.IncomingMessage) => {
+  connections.newConnection(socket);
 });
 
 //let people know if server closes, when ctrl-c is pressed

@@ -1,5 +1,7 @@
 import * as WebSocket from 'ws';
 import * as data from '../chatData';
+import * as crypto from 'crypto';
+//import 'crypto';
 //import * as rt from 'runtypes';
 
 class User {
@@ -35,12 +37,12 @@ class Room {
 class Connection {
   user: {user: User, room: Room} | null = null;
   server: Server;
-  sessionID: string;
+  sessionID: string | null;
   socket: WebSocket;
 
-  constructor(socket: WebSocket, sessionID: string, server: Server) {
+  constructor(socket: WebSocket, server: Server) {
     this.server = server;
-    this.sessionID = sessionID;
+    this.sessionID = null;
     this.socket = socket;
 
     socket.on("close", (code: number, reason: string) => {
@@ -56,30 +58,19 @@ class Connection {
         if(message.startsWith("ping")) {
           socket.send("pong " + message.slice(4));
 
-          //TODO put this in a real packet
-          let name = this.server.sessions.get(sessionID)
-          if(name !== undefined) {
-            let user = this.server.getUserFromName(name);
-            let room = this.server.getRoomWithUser(name);
-            //kick old user from this connection
-            if(user !== undefined && room !== undefined) {
-              user?.socket.close();
-              this.server.leaveRoom(user, room);
-              user.name = "";//make it not kick new user when socket closes
-            }
-            this.logIn(name);
-          }
-
           return;
         }
         try {
           let messageJson = JSON.parse(message);
           if(this.user === null) {
             if(data.ClientMessageRequestName.guard(messageJson)) {
-              this.handleNameRequest(messageJson, socket);
+              this.handleNameRequest(messageJson);
+            }
+            if(data.ClientMessageHandshake.guard(messageJson)) {
+              this.handleHandshake(messageJson);
             }
           }
-          else {
+          else if(this.sessionID !== null) {
             if(data.ClientMessageAppend.guard(messageJson)) {
               this.handleAppend(messageJson, this.user.user, this.user.room);
             }
@@ -111,17 +102,36 @@ class Connection {
     }
   }
 
-  handleNameRequest(jsonMessage: data.ClientMessageRequestName, socket: WebSocket) {
+  handleHandshake(jsonMessage: data.ClientMessageHandshake) {
+    let username = undefined;
+    if(jsonMessage.session !== undefined) {
+      this.sessionID = jsonMessage.session;
+      username = this.server.sessions.get(jsonMessage.session);
+    }
+    if(username !== undefined) {
+      let user = this.server.getUserFromName(username);
+      let room = this.server.getRoomWithUser(username);
+      //kick old user from this connection
+      if(user !== undefined && room !== undefined) {
+        user?.socket.close();
+        this.server.leaveRoom(user, room);
+        user.name = "";//make it not kick new user when socket closes
+      }
+      this.logIn(username);
+    }
+  }
+
+  handleNameRequest(jsonMessage: data.ClientMessageRequestName) {
     if(jsonMessage.name === "") {
-      socket.send(JSON.stringify(this.nameResponseError("name can't be empty")));
+      this.socket.send(JSON.stringify(this.nameResponseError("name can't be empty")));
       return null;
     }
     else if(jsonMessage.name.length > 32) {
-      socket.send(JSON.stringify(this.nameResponseError("name too long")));
+      this.socket.send(JSON.stringify(this.nameResponseError("name too long")));
       return null;
     }
     else if(this.server.getRoomWithUser(jsonMessage.name) !== undefined) {
-      socket.send(JSON.stringify(this.nameResponseError("name already taken")));
+      this.socket.send(JSON.stringify(this.nameResponseError("name already taken")));
       return null;
     }
     /*
@@ -137,19 +147,28 @@ class Connection {
   }
 
   logIn(name: string) {
-      let user: User = new User(name, this.socket, this.sessionID)
+    if(this.sessionID === null) {
+      this.sessionID = this.newSessionID();
+      console.log("new session id", this.sessionID);
+    }
+    let user: User = new User(name, this.socket, this.sessionID)
 
-      let nameResponse: data.ServerMessageNameResponse = {
-        type: "name",
-        newName: user.name,
-        isTaken: false
-      };
-      user.socket.send(JSON.stringify(nameResponse));
+    let nameResponse: data.ServerMessageNameResponse = {
+      type: "name",
+      newName: user.name,
+      session: this.sessionID,
+      isTaken: false
+    };
+    user.socket.send(JSON.stringify(nameResponse));
 
-      let room = this.server.getDefaultRoom();
-      this.user = {user: user, room: room};
-      this.server.joinRoom(this.user.user, room);
-      this.server.sessions.set(this.sessionID, user.name);
+    let room = this.server.getDefaultRoom();
+    this.user = {user: user, room: room};
+    this.server.joinRoom(this.user.user, room);
+    this.server.sessions.set(this.sessionID, user.name);
+  }
+
+  newSessionID(): string {
+    return crypto.randomBytes(24).toString("base64")
   }
 
   //TODO move some of this back to Server class
@@ -211,9 +230,7 @@ export class Server {
     this.sessions = new Map();
   }
 
-  newConnection(socket: WebSocket, sessionID: string) {
-    console.log("user count: " + this.rooms.reduce(
-      (count: number, room: Room) => count + room.people.length, 0));
+  newConnection(socket: WebSocket) {
     console.log("users:", this.rooms.flatMap(room => room.people.map(user => user.name)));
 
     socket.on("error", (socket: any, err: any) => {
@@ -222,7 +239,7 @@ export class Server {
       console.log(JSON.stringify(socket));
     });
 
-    new Connection(socket, sessionID, this);
+    new Connection(socket, this);
   }
 
   getDefaultRoom(): Room {

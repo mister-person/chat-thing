@@ -436,14 +436,17 @@ class RoomList extends React.Component<RoomListProps, RoomListState> {
   componentDidMount() {
     this.onRoomListID = eventHandler.onRoomList(this.roomListCallback);
     this.onNewRoomID = eventHandler.onNewRoom(this.onJoinRoomSuccess);
+    console.log("register", this.onRoomListID);
   }
 
   componentWillUnmount() {
     eventHandler.unregister(this.onRoomListID);
     eventHandler.unregister(this.onNewRoomID);
+    console.log("unregister", this.onRoomListID);
   }
 
   roomListCallback(rooms: Array<{name: string, usrcount: number}>) {
+    console.log("rewm list")
     rooms.sort((room1, room2) => room2.usrcount - room1.usrcount);
     if(this.mouseOver) {
       this.updatedRooms = rooms.slice();
@@ -651,11 +654,6 @@ class App extends React.Component<AppProps, AppState> {
     console.log("name", this.state.name);
     return (
       <div className="App">
-        {this.state.connected || 
-          <h1 style={{color: "red", position: "fixed", textAlign: "center", left: "0px", right: "0px", background: "black"}}>
-            disconnected from server
-          </h1>
-        }
         {this.state.name && <input type="button" value="Logout" className="logout-button" onClick={this.logout}/>}
         <RoomList
           visible={this.state.name != null}
@@ -672,6 +670,11 @@ class App extends React.Component<AppProps, AppState> {
               currentRoom={this.state.currentRoom}
               replaceCallback={this.replaceCallback}/>
           </div>
+        }
+        {this.state.connected || 
+          <h1 style={{color: "red", position: "fixed", textAlign: "center", left: "0px", right: "0px", background: "black"}}>
+            disconnected from server
+          </h1>
         }
       </div>
     );

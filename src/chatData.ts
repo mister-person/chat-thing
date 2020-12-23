@@ -52,7 +52,9 @@ export const ServerMessageNameResponse = rt.Record({
   type: rt.Literal("name"),
   isTaken: rt.Boolean,
   newName: rt.String
-});
+}).And(rt.Partial({
+  session: rt.String,
+}));
 export type ServerMessageNameResponse  = rt.Static<typeof ServerMessageNameResponse>;
 
 export const ServerMessage = rt.Union(
@@ -64,6 +66,12 @@ export const ServerMessage = rt.Union(
   ServerMessageJoinRoom,
   ServerMessageListRooms);
 export type ServerMessage  = rt.Static<typeof ServerMessage>;
+
+export const ClientMessageHandshake = rt.Record({
+  type: rt.Literal("ping"),
+  session: rt.String.Or(rt.Undefined)
+});
+export type ClientMessageHandshake  = rt.Static<typeof ClientMessageHandshake>;
 
 export const ClientMessageAppend = rt.Record({
   type: rt.Literal("append"),

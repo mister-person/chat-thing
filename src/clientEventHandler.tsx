@@ -32,9 +32,18 @@ export class ChatEventHandler {
   }
 
   newSocket(socket: WebSocket) {
+    let cookies = document.cookie.split(";");
+    let cookie = cookies.find(c => c.split("=")[0] === "session")?.split("=")[1];
+    console.log("new socket test");
+
     socket.addEventListener("open", (event) => {
-      console.log(event)
-      socket.send("ping test string");
+      console.log(event);
+      let handshake: data.ClientMessageHandshake = {
+        type: "ping",
+        session: cookie
+      }
+      console.log("cookie", cookie);
+      socket.send(JSON.stringify(handshake));
     });
     socket.addEventListener("message", (event) => {
       if(typeof(event.data) === "string") {
@@ -84,6 +93,10 @@ export class ChatEventHandler {
       this.nameCallbacks.map((cb) => {
         cb.callback(nameMessage.newName, nameMessage.isTaken);
       });
+
+      if(messageJson.session !== undefined) {
+        document.cookie = "session=" + messageJson.session;
+      }
     }
     if(data.ServerMessageJoinRoom.guard(messageJson)) {
       let roomMessage = messageJson;
@@ -147,14 +160,12 @@ export class ChatEventHandler {
   }
 
   unregister(id: callbackID) {
-    console.log("unregistering", id);
-
     let count = 0;
     let cb = (callback: any) => {
-      if(callback.id == id) {
+      if(callback.id === id) {
         count += 1;
       }
-      return callback.id == id;
+      return callback.id !== id;
     }
     this.addUserCallbacks = this.addUserCallbacks.filter(cb);
     this.delUserCallbacks = this.delUserCallbacks.filter(cb);
@@ -164,7 +175,7 @@ export class ChatEventHandler {
     this.roomCallbacks = this.roomCallbacks.filter(cb);
     this.roomListCallbacks = this.roomListCallbacks.filter(cb);
 
-    if(count == 0) {
+    if(count === 0) {
       console.log("counldn't find callback with id", id);
     }
   }
