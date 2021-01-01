@@ -61,7 +61,6 @@ export class ChatEventHandler {
     console.log(message);
     if(data.ServerMessageAppend.guard(messageJson)) {
       let cbList = this.appendCallbacks;
-      //TODO map
       for(let i = 0; i < cbList.length; i++) {
         if(cbList[i].from === messageJson.name) {
           cbList[i].callback(messageJson.text);

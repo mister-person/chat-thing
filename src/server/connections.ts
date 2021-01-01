@@ -1,8 +1,6 @@
 import * as WebSocket from 'ws';
 import * as data from '../chatData';
 import * as crypto from 'crypto';
-//import 'crypto';
-//import * as rt from 'runtypes';
 
 class User {
   name: string;
@@ -18,11 +16,6 @@ class User {
     return JSON.stringify([this.name, this.sessionID]);
   }
 }
-//type Room = {
-//  name: string,
-//  people: Array<{self: User}>,
-//  history: Map<string, string>, //map<username, history>
-//};
 
 class Room {
   name: string;
@@ -124,23 +117,13 @@ class Connection {
   handleNameRequest(jsonMessage: data.ClientMessageRequestName) {
     if(jsonMessage.name === "") {
       this.socket.send(JSON.stringify(this.nameResponseError("name can't be empty")));
-      return null;
     }
     else if(jsonMessage.name.length > 32) {
       this.socket.send(JSON.stringify(this.nameResponseError("name too long")));
-      return null;
     }
     else if(this.server.getRoomWithUser(jsonMessage.name) !== undefined) {
       this.socket.send(JSON.stringify(this.nameResponseError("name already taken")));
-      return null;
     }
-    /*
-    else if(Array.from(this.server.sessions.values()).find(name => name === jsonMessage.name) !== undefined) {
-      socket.send(JSON.stringify(this.nameResponseError("name already taken")));
-      console.log(JSON.stringify(this.server.sessions));
-      return null;
-    }
-    */
     else {
       this.logIn(jsonMessage.name);
     }
@@ -173,7 +156,6 @@ class Connection {
 
   //TODO move some of this back to Server class
   handleReplace(message: data.ClientMessageReplace, userFrom: User, room: Room) {
-    //TODO user in room
     let userInRoom = room.people.find((user) => user === userFrom);
     if(userInRoom === undefined) {
       console.log(`user ${userFrom.name} not in room ${room.name}`);
@@ -188,11 +170,12 @@ class Connection {
     };
     this.server.sendToRoom(packet, room);
 
+    //update history with data from packet
     let history = room.history.get(userInRoom.getHash());
     if(history !== undefined) {
       let slice = history.slice(0, history.length - message.offset)
       if(history.length - message.offset < 0) {
-        slice = "";//TODO maybe test this
+        slice = "";
       }
       let newText = slice + message.text;
       //TODO magic number
@@ -225,8 +208,6 @@ export class Server {
 
   constructor() {
     this.rooms = []
-    this.rooms.push({name: "default room", people: [], history: new Map()})
-    this.rooms.push({name: "new room test", people: [], history: new Map()})
     this.sessions = new Map();
   }
 
@@ -322,25 +303,6 @@ export class Server {
     }
     this.sendToAll(roomListPacket);
   }
-
-/*
-  joinRoom(user: Person, room: Room) {
-    room.people.map(roomPerson => {
-      roomPerson.person.socket.send
-    });
-    room.people.push(person);
-  }
-*/
-
-/*
-  sendToAllExcept(packet: data.ServerMessageAppend, user: Person) {
-    this.connections.map((con) => {
-      if(con.name !== user.name) {
-        con.socket.send(JSON.stringify(packet))
-      }
-    });
-  }
-*/
 
   sendToAll(packet: data.ServerMessage) {
     this.rooms.flatMap(room => room.people)

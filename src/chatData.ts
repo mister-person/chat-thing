@@ -1,5 +1,6 @@
 import * as rt from "runtypes";
 
+/* eslint-disable @typescript-eslint/no-redeclare */
 export const ServerMessageAppend = rt.Record({
   type: rt.Literal("append"),
   name: rt.String,
