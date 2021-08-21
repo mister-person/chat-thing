@@ -2,6 +2,8 @@
 
 It's a chat app, but you can see people's keystrokes as they're typing. 
 
+https://user-images.githubusercontent.com/22850561/130310485-09ebc645-49b6-4e78-b428-4dfcd0f7e69d.mp4
+
 ## Available Scripts
 
 In the project directory, you can run:
